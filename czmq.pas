@@ -21,34 +21,63 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
     =========================================================================
 }
+
+{$IFDEF FPC}
+{$MODE OBJFPC}
+{$ENDIF}
+
 unit czmq;
 
 interface
 
+  uses SysUtils;
+
   { Pointers to basic pascal types, inserted by h2pas conversion program.}
   Type
-    PLongint  = ^Longint;
-    PSmallInt = ^SmallInt;
-    PByte     = ^Byte;
-    PWord     = ^Word;
-    PDWord    = ^DWord;
-    PDouble   = ^Double;
-
 {$IFNDEF DELPHI2009_UP}
-    NativeUInt = Cardinal; 
+//    NativeUInt = Cardinal; 
 {$ENDIF}
 
-  {  This port range is defined by IANA for dynamic or private ports }
-  {  We use this when choosing a port for dynamic binding. }
+    size_t = NativeUInt;
 
+  {** 0MQ errors **}
 
-  {  Callback function for zero-copy methods }
+const
+//  A number random enough not to collide with different errno ranges on     
+//  different OSes. The assumption is that error_t is at least 32-bit type.  
+    ZMQ_HAUSNUMERO = 156384712;
+  
+  (*  On Windows platform some of the standard POSIX errnos are not defined.    *)
+    ENOTSUP         = (ZMQ_HAUSNUMERO + 1);
+    EPROTONOSUPPORT = (ZMQ_HAUSNUMERO + 2);
+    ENOBUFS         = (ZMQ_HAUSNUMERO + 3);
+    ENETDOWN        = (ZMQ_HAUSNUMERO + 4);
+    EADDRINUSE      = (ZMQ_HAUSNUMERO + 5);
+    EADDRNOTAVAIL   = (ZMQ_HAUSNUMERO + 6);
+    ECONNREFUSED    = (ZMQ_HAUSNUMERO + 7);
+    EINPROGRESS     = (ZMQ_HAUSNUMERO + 8);
+    ENOTSOCK        = (ZMQ_HAUSNUMERO + 9);
+    EMSGSIZE        = (ZMQ_HAUSNUMERO + 10);
+    EAFNOSUPPORT    = (ZMQ_HAUSNUMERO + 11);
+    ENETUNREACH     = (ZMQ_HAUSNUMERO + 12);
+    ECONNABORTED    = (ZMQ_HAUSNUMERO + 13);
+    ECONNRESET      = (ZMQ_HAUSNUMERO + 14);
+    ENOTCONN        = (ZMQ_HAUSNUMERO + 15);
+    ETIMEDOUT       = (ZMQ_HAUSNUMERO + 16);
+    EHOSTUNREACH    = (ZMQ_HAUSNUMERO + 17);
+    ENETRESET       = (ZMQ_HAUSNUMERO + 18);
+  
+  (*  Native 0MQ error codes.                                                   *)
+    EFSM           = (ZMQ_HAUSNUMERO + 51);
+    ENOCOMPATPROTO = (ZMQ_HAUSNUMERO + 52);
+    ETERM          = (ZMQ_HAUSNUMERO + 53);
+    EMTHREAD       = (ZMQ_HAUSNUMERO + 54);    
 
 
   {** zctx **}
 
   type
-    pzcx_t = ^zctx_t;
+    pzctx_t = ^zctx_t;
     zctx_t = record
     end;
     
@@ -104,10 +133,12 @@ interface
     
   {  Global signal indicator, TRUE when user presses Ctrl-C or the process }
   {  gets a SIGTERM signal. }
-  { extern volatile int zctx_interrupted; }
+    zctx_interrupted: PInteger;
 
   {** zsocket **}
 
+  {  This port range is defined by IANA for dynamic or private ports }
+  {  We use this when choosing a port for dynamic binding. }
   const
     ZSOCKET_DYNFROM = $c000;    
     ZSOCKET_DYNTO = $ffff;   
@@ -115,9 +146,9 @@ interface
   type
     //  Callback function for zero-copy methods
     zsocket_free_fn = procedure(data: Pointer; arg: Pointer); cdecl;
+    
 
   var
-  
   {  Create a new socket within our CZMQ context, replaces zmq_socket. }
   {  Use this to get automatic management of the socket at shutdown. }
   {  Note: SUB sockets do not automatically subscribe to everything; you }
@@ -270,16 +301,94 @@ interface
   {  Self test of this class }
     zsockopt_test : function(verbose: Longbool): Longint; cdecl;
 
+    {** zframe **}
+
+  type
+      pzframe_t = ^zframe_t;
+      zframe_t = record // opaque datatype
+      end;
+
+  const
+      FRAME_MORE = 1;
+      FRAME_REUSE = 2;
+      FRAME_DONTWAIT = 4;
+
+  var
+    {  Create a new frame with optional size, and optional data }
+      zframe_new : function(const data; size: NativeUInt): pzframe_t; cdecl;
+
+    {  Create an empty (zero-sized) frame }
+      zframe_new_empty : function: pzframe_t; cdecl;
+
+    {  Destroy a frame }
+      zframe_destroy : procedure(var self: pzframe_t); cdecl;
+
+    {  Receive frame from socket, returns zframe_t object or NULL if the recv }
+    {  was interrupted. Does a blocking recv, if you want to not block then use }
+    {  zframe_recv_nowait(). }
+      zframe_recv : function(socket: Pointer): pzframe_t; cdecl;
+
+    {  Receive a new frame off the socket. Returns newly allocated frame, or }
+    {  NULL if there was no input waiting, or if the read was interrupted. }
+      zframe_recv_nowait : function(socket: Pointer): pzframe_t; cdecl;
+
+    { Send a frame to a socket, destroy frame after sending. }
+    { Return -1 on error, 0 on success. }
+      zframe_send : function(var self: pzframe_t; socket: Pointer; flags: Longint): Longint; cdecl;
+
+    {  Return number of bytes in frame data }
+      zframe_size : function(self: pzframe_t): NativeUInt; cdecl;
+
+    {  Return address of frame data }
+      zframe_data : function(self: pzframe_t): PByte; cdecl;
+
+    {  Create a new frame that duplicates an existing frame }
+      zframe_dup : function(self: pzframe_t): pzframe_t; cdecl;
+
+    {  Return frame data encoded as printable hex string }
+      zframe_strhex : function(self: pzframe_t): PAnsiChar; cdecl;
+
+    {  Return frame data copied into freshly allocated string }
+      zframe_strdup : function(self: pzframe_t): PAnsiChar; cdecl;
+
+    {  Return TRUE if frame body is equal to string, excluding terminator }
+      zframe_streq : function(self: pzframe_t; _string: PAnsiChar): Longbool; cdecl;
+
+    {  Return frame MORE indicator (1 or 0), set when reading frame from socket }
+    {  or by the zframe_set_more() method }
+      zframe_more : function(self: pzframe_t): Longint; cdecl;
+
+    {  Set frame MORE indicator (1 or 0). Note this is NOT used when sending  }
+    {  frame to socket, you have to specify flag explicitly. }
+      zframe_set_more : procedure(self: pzframe_t; more: Longint); cdecl;
+
+    {  Return TRUE if two frames have identical size and data }
+    {  If either frame is NULL, equality is always false. }
+      zframe_eq : function(self: pzframe_t; other: pzframe_t): Longbool; cdecl;
+
+    {   Print contents of the frame to FILE stream. }
+      zframe_fprint : procedure(self: pzframe_t; prefix: PAnsiChar; afile: Pointer); cdecl;
+
+    {  Print contents of frame to stderr }
+      zframe_print : procedure(self: pzframe_t; prefix: PAnsiChar); cdecl;
+
+    {  Set new contents for frame }
+      zframe_reset : procedure(self: pzframe_t; const data; size: size_t); cdecl;
+
+    {  Put a block of data to the frame payload. }
+      zframe_put_block : function(self: pzframe_t; data: PByteArray; size: size_t): Longint; cdecl;
+
+    {  Self test of this class }
+      zframe_test : function(verbose: Longbool): Longint; cdecl;
+
+
   {** zmsg **}
 
   type
     pzmsg_t = ^zmsg_t;
     zmsg_t = record // opaque dataType
     end;
-    
-    pzframe_t = ^zframe_t;
-    zframe_t = record // opaque dataType
-    end;
+
 
   var
   {  Create a new empty message object }
@@ -405,87 +514,8 @@ interface
     zmsg_print : procedure(self: pzmsg_t); cdecl;
     
   {  Self test of this class }
-    zmsg_test : function(verbose:bool): Longint; cdecl;
+    zmsg_test : function(verbose: Longbool): Longint; cdecl;
     
-  {** zframe **}
-
-type
-    pzframe_t = ^zframe_t;
-    zframe_t = record // opaque datatype
-    end;
-
-const
-    ZFRAME_MORE = 1;    
-    ZFRAME_REUSE = 2;    
-    ZFRAME_DONTWAIT = 4;    
-
-var
-  {  Create a new frame with optional size, and optional data }
-    zframe_new : function(const data; size: NativeUInt): pzframe_t; cdecl;
-    
-  {  Create an empty (zero-sized) frame }
-    zframe_new_empty : function: pzframe_t; cdecl;
-    
-  {  Destroy a frame }
-    zframe_destroy : procedure(var self: pzframe_t); cdecl;
-    
-  {  Receive frame from socket, returns zframe_t object or NULL if the recv }
-  {  was interrupted. Does a blocking recv, if you want to not block then use }
-  {  zframe_recv_nowait(). }
-    zframe_recv : function(socket: Pointer): pzframe_t; cdecl;
-    
-  {  Receive a new frame off the socket. Returns newly allocated frame, or }
-  {  NULL if there was no input waiting, or if the read was interrupted. }
-    zframe_recv_nowait : function(socket: Pointer): pzframe_t; cdecl;
-    
-  { Send a frame to a socket, destroy frame after sending. }
-  { Return -1 on error, 0 on success. }
-    zframe_send : function(var self: pzframe_t; socket: Pointer; flags: Longint): Longint; cdecl;
-    
-  {  Return number of bytes in frame data }
-    zframe_size : function(self: pzframe_t): NativeUInt; cdecl;
-    
-  {  Return address of frame data }
-    zframe_data : function(self: pzframe_t): PByte; cdecl;
-    
-  {  Create a new frame that duplicates an existing frame }
-    zframe_dup : function(self: pzframe_t): pzframe_t; cdecl;
-    
-  {  Return frame data encoded as printable hex string }
-    zframe_strhex : function(self: pzframe_t): PAnsiChar; cdecl;
-    
-  {  Return frame data copied into freshly allocated string }
-    zframe_strdup : function(self: pzframe_t): PAnsiChar; cdecl;
-    
-  {  Return TRUE if frame body is equal to string, excluding terminator }
-    zframe_streq : function(self: pzframe_t; _string: PAnsiChar):bool; cdecl;
-    
-  {  Return frame MORE indicator (1 or 0), set when reading frame from socket }
-  {  or by the zframe_set_more() method }
-    zframe_more : function(self: pzframe_t): Longint; cdecl;
-    
-  {  Set frame MORE indicator (1 or 0). Note this is NOT used when sending  }
-  {  frame to socket, you have to specify flag explicitly. }
-    zframe_set_more : procedure(self: pzframe_t; more: Longint); cdecl;
-    
-  {  Return TRUE if two frames have identical size and data }
-  {  If either frame is NULL, equality is always false. }
-    zframe_eq : function(self: pzframe_t; other: pzframe_t): Longbool; cdecl;
-    
-  {   Print contents of the frame to FILE stream. }
-    zframe_fprint : procedure(self: pzframe_t; prefix: PAnsiChar; afile: Pointer); cdecl;
-    
-  {  Print contents of frame to stderr }
-    zframe_print : procedure(self: pzframe_t; prefix: PAnsiChar); cdecl;
-    
-  {  Set new contents for frame }
-    zframe_reset : procedure(self: pzframe_t; const data; size: NativeUInt); cdecl;
-    
-  {  Put a block of data to the frame payload. }
-    zframe_put_block : function(self: pzframe_t; data: PByteArray; size: NativeUInt): Longint; cdecl;
-    
-  {  Self test of this class }
-    zframe_test : function(verbose: Longbool): Longint; cdecl;
 
 {** zloop **}
 
@@ -604,7 +634,8 @@ var
     pzpoller_t = ^zpoller_t;
     zpoller_t = record
     end;
-    
+
+  var
   {  Create new poller }
     zpoller_new : function(var reader: Pointer{, ...}): pzpoller_t; cdecl; varargs;
     
@@ -746,19 +777,24 @@ var
     zuuid_test : function(verbose: Longbool): Longint; cdecl;
 
 
+  procedure LoadLib(lib : pchar);
+  procedure FreeLib;
+
 implementation
 
-  uses
-    SysUtils
-    {IFDEF FPC}, dynlibs{$ELSE}, Windows{$ENDIF};
+{$IFDEF FPC}
+  uses dynlibs;
+{$ELSE}
+  uses Windows;
+{$ENDIF}
 
   var
-    hlib : tlibhandle;
+    _hlib : tlibhandle;
 
 
   procedure FreeLib;
     begin
-      FreeLibrary(hlib);
+      FreeLibrary(_hlib);
 
       zctx_new:=nil;
       zctx_destroy:=nil;
@@ -771,6 +807,7 @@ implementation
       zctx_set_rcvhwm:=nil;
       zctx_underlying:=nil;
       zctx_test:=nil;
+      zctx_interrupted:=nil;
 
       zsocket_new:=nil;
       zsocket_destroy:=nil;
@@ -821,9 +858,6 @@ implementation
       zmsg_fprint:=nil;
       zmsg_print:=nil;
       zmsg_test:=nil;
-      zmsg_wrap:=nil;
-      zmsg_push:=nil;
-      zmsg_add:=nil;
 
       zframe_new:=nil;
       zframe_new_empty:=nil;
@@ -999,252 +1033,245 @@ implementation
 
   procedure LoadLib(lib : pchar);
     begin
-      Freezsocket;
-      hlib:=LoadLibrary(lib);
-      if hlib=0 then
+      //Freezsocket;
+      _hlib:=LoadLibrary(lib);
+      if _hlib=0 then
         raise Exception.Create(format('Could not load library: %s',[lib]));
 
-      Pointer(zctx_new) := GetProcAddress(hlib, 'zctx_new');
-      Pointer(zctx_destroy) := GetProcAddress(hlib, 'zctx_destroy');
-      Pointer(zctx_shadow) := GetProcAddress(hlib, 'zctx_shadow');
-      Pointer(zctx_shadow_zmq_ctx) := GetProcAddress(hlib, 'zctx_shadow_zmq_ctx');
-      Pointer(zctx_set_iothreads) := GetProcAddress(hlib, 'zctx_set_iothreads');
-      Pointer(zctx_set_linger) := GetProcAddress(hlib, 'zctx_set_linger');
-      Pointer(zctx_set_pipehwm) := GetProcAddress(hlib, 'zctx_set_pipehwm');
-      Pointer(zctx_set_sndhwm) := GetProcAddress(hlib, 'zctx_set_sndhwm');
-      Pointer(zctx_set_rcvhwm) := GetProcAddress(hlib, 'zctx_set_rcvhwm');
-      Pointer(zctx_underlying) := GetProcAddress(hlib, 'zctx_underlying');
-      Pointer(zctx_test) := GetProcAddress(hlib, 'zctx_test');
+      Pointer(zctx_new) := GetProcAddress(_hlib, 'zctx_new');
+      Pointer(zctx_destroy) := GetProcAddress(_hlib, 'zctx_destroy');
+      Pointer(zctx_shadow) := GetProcAddress(_hlib, 'zctx_shadow');
+      Pointer(zctx_shadow_zmq_ctx) := GetProcAddress(_hlib, 'zctx_shadow_zmq_ctx');
+      Pointer(zctx_set_iothreads) := GetProcAddress(_hlib, 'zctx_set_iothreads');
+      Pointer(zctx_set_linger) := GetProcAddress(_hlib, 'zctx_set_linger');
+      Pointer(zctx_set_pipehwm) := GetProcAddress(_hlib, 'zctx_set_pipehwm');
+      Pointer(zctx_set_sndhwm) := GetProcAddress(_hlib, 'zctx_set_sndhwm');
+      Pointer(zctx_set_rcvhwm) := GetProcAddress(_hlib, 'zctx_set_rcvhwm');
+      Pointer(zctx_underlying) := GetProcAddress(_hlib, 'zctx_underlying');
+      Pointer(zctx_test) := GetProcAddress(_hlib, 'zctx_test');
+      Pointer(zctx_interrupted) := GetProcAddress(_hlib, 'zctx_interrupted');
 
-      Pointer(zsocket_new) := GetProcAddress(hlib, 'zsocket_new');
-      Pointer(zsocket_destroy) := GetProcAddress(hlib, 'zsocket_destroy');
-      Pointer(zsocket_bind) := GetProcAddress(hlib, 'zsocket_bind');
-      Pointer(zsocket_bind) := GetProcAddress(hlib, 'zsocket_bind');
-      Pointer(zsocket_unbind) := GetProcAddress(hlib, 'zsocket_unbind');
-      Pointer(zsocket_unbind) := GetProcAddress(hlib, 'zsocket_unbind');
-      Pointer(zsocket_connect) := GetProcAddress(hlib, 'zsocket_connect');
-      Pointer(zsocket_connect) := GetProcAddress(hlib, 'zsocket_connect');
-      Pointer(zsocket_disconnect) := GetProcAddress(hlib, 'zsocket_disconnect');
-      Pointer(zsocket_disconnect) := GetProcAddress(hlib, 'zsocket_disconnect');
-      Pointer(zsocket_poll) := GetProcAddress(hlib, 'zsocket_poll');
-      Pointer(zsocket_type_str) := GetProcAddress(hlib, 'zsocket_type_str');
-      Pointer(zsocket_sendmem) := GetProcAddress(hlib, 'zsocket_sendmem');
-      Pointer(zsocket_signal) := GetProcAddress(hlib, 'zsocket_signal');
-      Pointer(zsocket_wait) := GetProcAddress(hlib, 'zsocket_wait');
-      Pointer(zsocket_test) := GetProcAddress(hlib, 'zsocket_test');
+      Pointer(zsocket_new) := GetProcAddress(_hlib, 'zsocket_new');
+      Pointer(zsocket_destroy) := GetProcAddress(_hlib, 'zsocket_destroy');
+      Pointer(zsocket_bind) := GetProcAddress(_hlib, 'zsocket_bind');
+      Pointer(zsocket_bind) := GetProcAddress(_hlib, 'zsocket_bind');
+      Pointer(zsocket_unbind) := GetProcAddress(_hlib, 'zsocket_unbind');
+      Pointer(zsocket_unbind) := GetProcAddress(_hlib, 'zsocket_unbind');
+      Pointer(zsocket_connect) := GetProcAddress(_hlib, 'zsocket_connect');
+      Pointer(zsocket_connect) := GetProcAddress(_hlib, 'zsocket_connect');
+      Pointer(zsocket_disconnect) := GetProcAddress(_hlib, 'zsocket_disconnect');
+      Pointer(zsocket_disconnect) := GetProcAddress(_hlib, 'zsocket_disconnect');
+      Pointer(zsocket_poll) := GetProcAddress(_hlib, 'zsocket_poll');
+      Pointer(zsocket_type_str) := GetProcAddress(_hlib, 'zsocket_type_str');
+      Pointer(zsocket_sendmem) := GetProcAddress(_hlib, 'zsocket_sendmem');
+      Pointer(zsocket_signal) := GetProcAddress(_hlib, 'zsocket_signal');
+      Pointer(zsocket_wait) := GetProcAddress(_hlib, 'zsocket_wait');
+      Pointer(zsocket_test) := GetProcAddress(_hlib, 'zsocket_test');
 
-      Pointer(zmsg_new) := GetProcAddress(hlib, 'zmsg_new');
-      Pointer(zmsg_destroy) := GetProcAddress(hlib, 'zmsg_destroy');
-      Pointer(zmsg_recv) := GetProcAddress(hlib, 'zmsg_recv');
-      Pointer(zmsg_recv_nowait) := GetProcAddress(hlib, 'zmsg_recv_nowait');
-      Pointer(zmsg_send) := GetProcAddress(hlib, 'zmsg_send');
-      Pointer(zmsg_size) := GetProcAddress(hlib, 'zmsg_size');
-      Pointer(zmsg_content_size) := GetProcAddress(hlib, 'zmsg_content_size');
-      Pointer(zmsg_prepend) := GetProcAddress(hlib, 'zmsg_prepend');
-      Pointer(zmsg_append) := GetProcAddress(hlib, 'zmsg_append');
-      Pointer(zmsg_pop) := GetProcAddress(hlib, 'zmsg_pop');
-      Pointer(zmsg_pushmem) := GetProcAddress(hlib, 'zmsg_pushmem');
-      Pointer(zmsg_addmem) := GetProcAddress(hlib, 'zmsg_addmem');
-      Pointer(zmsg_pushstr) := GetProcAddress(hlib, 'zmsg_pushstr');
-      Pointer(zmsg_addstr) := GetProcAddress(hlib, 'zmsg_addstr');
-      Pointer(zmsg_pushstrf) := GetProcAddress(hlib, 'zmsg_pushstrf');
-      Pointer(zmsg_pushstrf) := GetProcAddress(hlib, 'zmsg_pushstrf');
-      Pointer(zmsg_addstrf) := GetProcAddress(hlib, 'zmsg_addstrf');
-      Pointer(zmsg_addstrf) := GetProcAddress(hlib, 'zmsg_addstrf');
-      Pointer(zmsg_popstr) := GetProcAddress(hlib, 'zmsg_popstr');
-      Pointer(zmsg_unwrap) := GetProcAddress(hlib, 'zmsg_unwrap');
-      Pointer(zmsg_remove) := GetProcAddress(hlib, 'zmsg_remove');
-      Pointer(zmsg_first) := GetProcAddress(hlib, 'zmsg_first');
-      Pointer(zmsg_next) := GetProcAddress(hlib, 'zmsg_next');
-      Pointer(zmsg_last) := GetProcAddress(hlib, 'zmsg_last');
-      Pointer(zmsg_save) := GetProcAddress(hlib, 'zmsg_save');
-      Pointer(zmsg_load) := GetProcAddress(hlib, 'zmsg_load');
-      Pointer(zmsg_encode) := GetProcAddress(hlib, 'zmsg_encode');
-      Pointer(zmsg_decode) := GetProcAddress(hlib, 'zmsg_decode');
-      Pointer(zmsg_dup) := GetProcAddress(hlib, 'zmsg_dup');
-      Pointer(zmsg_fprint) := GetProcAddress(hlib, 'zmsg_fprint');
-      Pointer(zmsg_print) := GetProcAddress(hlib, 'zmsg_print');
-      Pointer(zmsg_test) := GetProcAddress(hlib, 'zmsg_test');
-      Pointer(zmsg_wrap) := GetProcAddress(hlib, 'zmsg_wrap');
-      Pointer(zmsg_push) := GetProcAddress(hlib, 'zmsg_push');
-      Pointer(zmsg_add) := GetProcAddress(hlib, 'zmsg_add');
+      Pointer(zmsg_new) := GetProcAddress(_hlib, 'zmsg_new');
+      Pointer(zmsg_destroy) := GetProcAddress(_hlib, 'zmsg_destroy');
+      Pointer(zmsg_recv) := GetProcAddress(_hlib, 'zmsg_recv');
+      Pointer(zmsg_recv_nowait) := GetProcAddress(_hlib, 'zmsg_recv_nowait');
+      Pointer(zmsg_send) := GetProcAddress(_hlib, 'zmsg_send');
+      Pointer(zmsg_size) := GetProcAddress(_hlib, 'zmsg_size');
+      Pointer(zmsg_content_size) := GetProcAddress(_hlib, 'zmsg_content_size');
+      Pointer(zmsg_prepend) := GetProcAddress(_hlib, 'zmsg_prepend');
+      Pointer(zmsg_append) := GetProcAddress(_hlib, 'zmsg_append');
+      Pointer(zmsg_pop) := GetProcAddress(_hlib, 'zmsg_pop');
+      Pointer(zmsg_pushmem) := GetProcAddress(_hlib, 'zmsg_pushmem');
+      Pointer(zmsg_addmem) := GetProcAddress(_hlib, 'zmsg_addmem');
+      Pointer(zmsg_pushstr) := GetProcAddress(_hlib, 'zmsg_pushstr');
+      Pointer(zmsg_addstr) := GetProcAddress(_hlib, 'zmsg_addstr');
+      Pointer(zmsg_pushstrf) := GetProcAddress(_hlib, 'zmsg_pushstrf');
+      Pointer(zmsg_pushstrf) := GetProcAddress(_hlib, 'zmsg_pushstrf');
+      Pointer(zmsg_addstrf) := GetProcAddress(_hlib, 'zmsg_addstrf');
+      Pointer(zmsg_addstrf) := GetProcAddress(_hlib, 'zmsg_addstrf');
+      Pointer(zmsg_popstr) := GetProcAddress(_hlib, 'zmsg_popstr');
+      Pointer(zmsg_unwrap) := GetProcAddress(_hlib, 'zmsg_unwrap');
+      Pointer(zmsg_remove) := GetProcAddress(_hlib, 'zmsg_remove');
+      Pointer(zmsg_first) := GetProcAddress(_hlib, 'zmsg_first');
+      Pointer(zmsg_next) := GetProcAddress(_hlib, 'zmsg_next');
+      Pointer(zmsg_last) := GetProcAddress(_hlib, 'zmsg_last');
+      Pointer(zmsg_save) := GetProcAddress(_hlib, 'zmsg_save');
+      Pointer(zmsg_load) := GetProcAddress(_hlib, 'zmsg_load');
+      Pointer(zmsg_encode) := GetProcAddress(_hlib, 'zmsg_encode');
+      Pointer(zmsg_decode) := GetProcAddress(_hlib, 'zmsg_decode');
+      Pointer(zmsg_dup) := GetProcAddress(_hlib, 'zmsg_dup');
+      Pointer(zmsg_fprint) := GetProcAddress(_hlib, 'zmsg_fprint');
+      Pointer(zmsg_print) := GetProcAddress(_hlib, 'zmsg_print');
+      Pointer(zmsg_test) := GetProcAddress(_hlib, 'zmsg_test');
 
-      Pointer(zframe_new) := GetProcAddress(hlib, 'zframe_new');
-      Pointer(zframe_new_empty) := GetProcAddress(hlib, 'zframe_new_empty');
-      Pointer(zframe_destroy) := GetProcAddress(hlib, 'zframe_destroy');
-      Pointer(zframe_recv) := GetProcAddress(hlib, 'zframe_recv');
-      Pointer(zframe_recv_nowait) := GetProcAddress(hlib, 'zframe_recv_nowait');
-      Pointer(zframe_send) := GetProcAddress(hlib, 'zframe_send');
-      Pointer(zframe_size) := GetProcAddress(hlib, 'zframe_size');
-      Pointer(zframe_data) := GetProcAddress(hlib, 'zframe_data');
-      Pointer(zframe_dup) := GetProcAddress(hlib, 'zframe_dup');
-      Pointer(zframe_strhex) := GetProcAddress(hlib, 'zframe_strhex');
-      Pointer(zframe_strdup) := GetProcAddress(hlib, 'zframe_strdup');
-      Pointer(zframe_streq) := GetProcAddress(hlib, 'zframe_streq');
-      Pointer(zframe_more) := GetProcAddress(hlib, 'zframe_more');
-      Pointer(zframe_set_more) := GetProcAddress(hlib, 'zframe_set_more');
-      Pointer(zframe_eq) := GetProcAddress(hlib, 'zframe_eq');
-      Pointer(zframe_fprint) := GetProcAddress(hlib, 'zframe_fprint');
-      Pointer(zframe_print) := GetProcAddress(hlib, 'zframe_print');
-      Pointer(zframe_reset) := GetProcAddress(hlib, 'zframe_reset');
-      Pointer(zframe_put_block) := GetProcAddress(hlib, 'zframe_put_block');
-      Pointer(zframe_test) := GetProcAddress(hlib, 'zframe_test');
+      Pointer(zframe_new) := GetProcAddress(_hlib, 'zframe_new');
+      Pointer(zframe_new_empty) := GetProcAddress(_hlib, 'zframe_new_empty');
+      Pointer(zframe_destroy) := GetProcAddress(_hlib, 'zframe_destroy');
+      Pointer(zframe_recv) := GetProcAddress(_hlib, 'zframe_recv');
+      Pointer(zframe_recv_nowait) := GetProcAddress(_hlib, 'zframe_recv_nowait');
+      Pointer(zframe_send) := GetProcAddress(_hlib, 'zframe_send');
+      Pointer(zframe_size) := GetProcAddress(_hlib, 'zframe_size');
+      Pointer(zframe_data) := GetProcAddress(_hlib, 'zframe_data');
+      Pointer(zframe_dup) := GetProcAddress(_hlib, 'zframe_dup');
+      Pointer(zframe_strhex) := GetProcAddress(_hlib, 'zframe_strhex');
+      Pointer(zframe_strdup) := GetProcAddress(_hlib, 'zframe_strdup');
+      Pointer(zframe_streq) := GetProcAddress(_hlib, 'zframe_streq');
+      Pointer(zframe_more) := GetProcAddress(_hlib, 'zframe_more');
+      Pointer(zframe_set_more) := GetProcAddress(_hlib, 'zframe_set_more');
+      Pointer(zframe_eq) := GetProcAddress(_hlib, 'zframe_eq');
+      Pointer(zframe_fprint) := GetProcAddress(_hlib, 'zframe_fprint');
+      Pointer(zframe_print) := GetProcAddress(_hlib, 'zframe_print');
+      Pointer(zframe_reset) := GetProcAddress(_hlib, 'zframe_reset');
+      Pointer(zframe_put_block) := GetProcAddress(_hlib, 'zframe_put_block');
+      Pointer(zframe_test) := GetProcAddress(_hlib, 'zframe_test');
 
-      Pointer(zauth_new) := GetProcAddress(hlib, 'zauth_new');
-      Pointer(zauth_allow) := GetProcAddress(hlib, 'zauth_allow');
-      Pointer(zauth_deny) := GetProcAddress(hlib, 'zauth_deny');
-      Pointer(zauth_configure_plain) := GetProcAddress(hlib, 'zauth_configure_plain');
-      Pointer(zauth_configure_curve) := GetProcAddress(hlib, 'zauth_configure_curve');
-      Pointer(zauth_set_verbose) := GetProcAddress(hlib, 'zauth_set_verbose');
-      Pointer(zauth_destroy) := GetProcAddress(hlib, 'zauth_destroy');
-      Pointer(zauth_test) := GetProcAddress(hlib, 'zauth_test');
+      Pointer(zauth_new) := GetProcAddress(_hlib, 'zauth_new');
+      Pointer(zauth_allow) := GetProcAddress(_hlib, 'zauth_allow');
+      Pointer(zauth_deny) := GetProcAddress(_hlib, 'zauth_deny');
+      Pointer(zauth_configure_plain) := GetProcAddress(_hlib, 'zauth_configure_plain');
+      Pointer(zauth_configure_curve) := GetProcAddress(_hlib, 'zauth_configure_curve');
+      Pointer(zauth_set_verbose) := GetProcAddress(_hlib, 'zauth_set_verbose');
+      Pointer(zauth_destroy) := GetProcAddress(_hlib, 'zauth_destroy');
+      Pointer(zauth_test) := GetProcAddress(_hlib, 'zauth_test');
 
-      Pointer(zpoller_new) := GetProcAddress(hlib, 'zpoller_new');
-      Pointer(zpoller_new) := GetProcAddress(hlib, 'zpoller_new');
-      Pointer(zpoller_destroy) := GetProcAddress(hlib, 'zpoller_destroy');
-      Pointer(zpoller_add) := GetProcAddress(hlib, 'zpoller_add');
-      Pointer(zpoller_wait) := GetProcAddress(hlib, 'zpoller_wait');
-      Pointer(zpoller_expired) := GetProcAddress(hlib, 'zpoller_expired');
-      Pointer(zpoller_terminated) := GetProcAddress(hlib, 'zpoller_terminated');
-      Pointer(zpoller_test) := GetProcAddress(hlib, 'zpoller_test');
+      Pointer(zpoller_new) := GetProcAddress(_hlib, 'zpoller_new');
+      Pointer(zpoller_new) := GetProcAddress(_hlib, 'zpoller_new');
+      Pointer(zpoller_destroy) := GetProcAddress(_hlib, 'zpoller_destroy');
+      Pointer(zpoller_add) := GetProcAddress(_hlib, 'zpoller_add');
+      Pointer(zpoller_wait) := GetProcAddress(_hlib, 'zpoller_wait');
+      Pointer(zpoller_expired) := GetProcAddress(_hlib, 'zpoller_expired');
+      Pointer(zpoller_terminated) := GetProcAddress(_hlib, 'zpoller_terminated');
+      Pointer(zpoller_test) := GetProcAddress(_hlib, 'zpoller_test');
 
-      Pointer(zloop_new) := GetProcAddress(hlib, 'zloop_new');
-      Pointer(zloop_destroy) := GetProcAddress(hlib, 'zloop_destroy');
-      Pointer(zloop_poller) := GetProcAddress(hlib, 'zloop_poller');
-      Pointer(zloop_poller_end) := GetProcAddress(hlib, 'zloop_poller_end');
-      Pointer(zloop_set_tolerant) := GetProcAddress(hlib, 'zloop_set_tolerant');
-      Pointer(zloop_timer) := GetProcAddress(hlib, 'zloop_timer');
-      Pointer(zloop_timer_end) := GetProcAddress(hlib, 'zloop_timer_end');
-      Pointer(zloop_set_verbose) := GetProcAddress(hlib, 'zloop_set_verbose');
-      Pointer(zloop_start) := GetProcAddress(hlib, 'zloop_start');
-      Pointer(zloop_test) := GetProcAddress(hlib, 'zloop_test');
+      Pointer(zloop_new) := GetProcAddress(_hlib, 'zloop_new');
+      Pointer(zloop_destroy) := GetProcAddress(_hlib, 'zloop_destroy');
+      Pointer(zloop_poller) := GetProcAddress(_hlib, 'zloop_poller');
+      Pointer(zloop_poller_end) := GetProcAddress(_hlib, 'zloop_poller_end');
+      Pointer(zloop_set_tolerant) := GetProcAddress(_hlib, 'zloop_set_tolerant');
+      Pointer(zloop_timer) := GetProcAddress(_hlib, 'zloop_timer');
+      Pointer(zloop_timer_end) := GetProcAddress(_hlib, 'zloop_timer_end');
+      Pointer(zloop_set_verbose) := GetProcAddress(_hlib, 'zloop_set_verbose');
+      Pointer(zloop_start) := GetProcAddress(_hlib, 'zloop_start');
+      Pointer(zloop_test) := GetProcAddress(_hlib, 'zloop_test');
 
-      Pointer(zmonitor_new) := GetProcAddress(hlib, 'zmonitor_new');
-      Pointer(zmonitor_destroy) := GetProcAddress(hlib, 'zmonitor_destroy');
-      Pointer(zmonitor_recv) := GetProcAddress(hlib, 'zmonitor_recv');
-      Pointer(zmonitor_socket) := GetProcAddress(hlib, 'zmonitor_socket');
-      Pointer(zmonitor_set_verbose) := GetProcAddress(hlib, 'zmonitor_set_verbose');
-      Pointer(zmonitor_test) := GetProcAddress(hlib, 'zmonitor_test');
+      Pointer(zmonitor_new) := GetProcAddress(_hlib, 'zmonitor_new');
+      Pointer(zmonitor_destroy) := GetProcAddress(_hlib, 'zmonitor_destroy');
+      Pointer(zmonitor_recv) := GetProcAddress(_hlib, 'zmonitor_recv');
+      Pointer(zmonitor_socket) := GetProcAddress(_hlib, 'zmonitor_socket');
+      Pointer(zmonitor_set_verbose) := GetProcAddress(_hlib, 'zmonitor_set_verbose');
+      Pointer(zmonitor_test) := GetProcAddress(_hlib, 'zmonitor_test');
       
-      Pointer(zsocket_tos) := GetProcAddress(hlib, 'zsocket_tos');
-      Pointer(zsocket_plain_server) := GetProcAddress(hlib, 'zsocket_plain_server');
-      Pointer(zsocket_plain_username) := GetProcAddress(hlib, 'zsocket_plain_username');
-      Pointer(zsocket_plain_password) := GetProcAddress(hlib, 'zsocket_plain_password');
-      Pointer(zsocket_curve_server) := GetProcAddress(hlib, 'zsocket_curve_server');
-      Pointer(zsocket_curve_publickey) := GetProcAddress(hlib, 'zsocket_curve_publickey');
-      Pointer(zsocket_curve_secretkey) := GetProcAddress(hlib, 'zsocket_curve_secretkey');
-      Pointer(zsocket_curve_serverkey) := GetProcAddress(hlib, 'zsocket_curve_serverkey');
-      Pointer(zsocket_zap_domain) := GetProcAddress(hlib, 'zsocket_zap_domain');
-      Pointer(zsocket_mechanism) := GetProcAddress(hlib, 'zsocket_mechanism');
-      Pointer(zsocket_ipv6) := GetProcAddress(hlib, 'zsocket_ipv6');
-      Pointer(zsocket_immediate) := GetProcAddress(hlib, 'zsocket_immediate');
-      Pointer(zsocket_ipv4only) := GetProcAddress(hlib, 'zsocket_ipv4only');
-      Pointer(zsocket_type) := GetProcAddress(hlib, 'zsocket_type');
-      Pointer(zsocket_sndhwm) := GetProcAddress(hlib, 'zsocket_sndhwm');
-      Pointer(zsocket_rcvhwm) := GetProcAddress(hlib, 'zsocket_rcvhwm');
-      Pointer(zsocket_affinity) := GetProcAddress(hlib, 'zsocket_affinity');
-      Pointer(zsocket_identity) := GetProcAddress(hlib, 'zsocket_identity');
-      Pointer(zsocket_rate) := GetProcAddress(hlib, 'zsocket_rate');
-      Pointer(zsocket_recovery_ivl) := GetProcAddress(hlib, 'zsocket_recovery_ivl');
-      Pointer(zsocket_sndbuf) := GetProcAddress(hlib, 'zsocket_sndbuf');
-      Pointer(zsocket_rcvbuf) := GetProcAddress(hlib, 'zsocket_rcvbuf');
-      Pointer(zsocket_linger) := GetProcAddress(hlib, 'zsocket_linger');
-      Pointer(zsocket_reconnect_ivl) := GetProcAddress(hlib, 'zsocket_reconnect_ivl');
-      Pointer(zsocket_reconnect_ivl_max) := GetProcAddress(hlib, 'zsocket_reconnect_ivl_max');
-      Pointer(zsocket_backlog) := GetProcAddress(hlib, 'zsocket_backlog');
-      Pointer(zsocket_maxmsgsize) := GetProcAddress(hlib, 'zsocket_maxmsgsize');
-      Pointer(zsocket_multicast_hops) := GetProcAddress(hlib, 'zsocket_multicast_hops');
-      Pointer(zsocket_rcvtimeo) := GetProcAddress(hlib, 'zsocket_rcvtimeo');
-      Pointer(zsocket_sndtimeo) := GetProcAddress(hlib, 'zsocket_sndtimeo');
-      Pointer(zsocket_tcp_keepalive) := GetProcAddress(hlib, 'zsocket_tcp_keepalive');
-      Pointer(zsocket_tcp_keepalive_idle) := GetProcAddress(hlib, 'zsocket_tcp_keepalive_idle');
-      Pointer(zsocket_tcp_keepalive_cnt) := GetProcAddress(hlib, 'zsocket_tcp_keepalive_cnt');
-      Pointer(zsocket_tcp_keepalive_intvl) := GetProcAddress(hlib, 'zsocket_tcp_keepalive_intvl');
-      Pointer(zsocket_tcp_accept_filter) := GetProcAddress(hlib, 'zsocket_tcp_accept_filter');
-      Pointer(zsocket_rcvmore) := GetProcAddress(hlib, 'zsocket_rcvmore');
-      Pointer(zsocket_fd) := GetProcAddress(hlib, 'zsocket_fd');
-      Pointer(zsocket_events) := GetProcAddress(hlib, 'zsocket_events');
-      Pointer(zsocket_last_endpoint) := GetProcAddress(hlib, 'zsocket_last_endpoint');
-      Pointer(zsocket_set_tos) := GetProcAddress(hlib, 'zsocket_set_tos');
-      Pointer(zsocket_set_router_handover) := GetProcAddress(hlib, 'zsocket_set_router_handover');
-      Pointer(zsocket_set_router_mandatory) := GetProcAddress(hlib, 'zsocket_set_router_mandatory');
-      Pointer(zsocket_set_probe_router) := GetProcAddress(hlib, 'zsocket_set_probe_router');
-      Pointer(zsocket_set_req_relaxed) := GetProcAddress(hlib, 'zsocket_set_req_relaxed');
-      Pointer(zsocket_set_req_correlate) := GetProcAddress(hlib, 'zsocket_set_req_correlate');
-      Pointer(zsocket_set_conflate) := GetProcAddress(hlib, 'zsocket_set_conflate');
-      Pointer(zsocket_set_plain_server) := GetProcAddress(hlib, 'zsocket_set_plain_server');
-      Pointer(zsocket_set_plain_username) := GetProcAddress(hlib, 'zsocket_set_plain_username');
-      Pointer(zsocket_set_plain_password) := GetProcAddress(hlib, 'zsocket_set_plain_password');
-      Pointer(zsocket_set_curve_server) := GetProcAddress(hlib, 'zsocket_set_curve_server');
-      Pointer(zsocket_set_curve_publickey) := GetProcAddress(hlib, 'zsocket_set_curve_publickey');
-      Pointer(zsocket_set_curve_publickey_bin) := GetProcAddress(hlib, 'zsocket_set_curve_publickey_bin');
-      Pointer(zsocket_set_curve_secretkey) := GetProcAddress(hlib, 'zsocket_set_curve_secretkey');
-      Pointer(zsocket_set_curve_secretkey_bin) := GetProcAddress(hlib, 'zsocket_set_curve_secretkey_bin');
-      Pointer(zsocket_set_curve_serverkey) := GetProcAddress(hlib, 'zsocket_set_curve_serverkey');
-      Pointer(zsocket_set_curve_serverkey_bin) := GetProcAddress(hlib, 'zsocket_set_curve_serverkey_bin');
-      Pointer(zsocket_set_zap_domain) := GetProcAddress(hlib, 'zsocket_set_zap_domain');
-      Pointer(zsocket_set_ipv6) := GetProcAddress(hlib, 'zsocket_set_ipv6');
-      Pointer(zsocket_set_immediate) := GetProcAddress(hlib, 'zsocket_set_immediate');
-      Pointer(zsocket_set_router_raw) := GetProcAddress(hlib, 'zsocket_set_router_raw');
-      Pointer(zsocket_set_ipv4only) := GetProcAddress(hlib, 'zsocket_set_ipv4only');
-      Pointer(zsocket_set_delay_attach_on_connect) := GetProcAddress(hlib, 'zsocket_set_delay_attach_on_connect');
-      Pointer(zsocket_set_sndhwm) := GetProcAddress(hlib, 'zsocket_set_sndhwm');
-      Pointer(zsocket_set_rcvhwm) := GetProcAddress(hlib, 'zsocket_set_rcvhwm');
-      Pointer(zsocket_set_affinity) := GetProcAddress(hlib, 'zsocket_set_affinity');
-      Pointer(zsocket_set_subscribe) := GetProcAddress(hlib, 'zsocket_set_subscribe');
-      Pointer(zsocket_set_unsubscribe) := GetProcAddress(hlib, 'zsocket_set_unsubscribe');
-      Pointer(zsocket_set_identity) := GetProcAddress(hlib, 'zsocket_set_identity');
-      Pointer(zsocket_set_rate) := GetProcAddress(hlib, 'zsocket_set_rate');
-      Pointer(zsocket_set_recovery_ivl) := GetProcAddress(hlib, 'zsocket_set_recovery_ivl');
-      Pointer(zsocket_set_sndbuf) := GetProcAddress(hlib, 'zsocket_set_sndbuf');
-      Pointer(zsocket_set_rcvbuf) := GetProcAddress(hlib, 'zsocket_set_rcvbuf');
-      Pointer(zsocket_set_linger) := GetProcAddress(hlib, 'zsocket_set_linger');
-      Pointer(zsocket_set_reconnect_ivl) := GetProcAddress(hlib, 'zsocket_set_reconnect_ivl');
-      Pointer(zsocket_set_reconnect_ivl_max) := GetProcAddress(hlib, 'zsocket_set_reconnect_ivl_max');
-      Pointer(zsocket_set_backlog) := GetProcAddress(hlib, 'zsocket_set_backlog');
-      Pointer(zsocket_set_maxmsgsize) := GetProcAddress(hlib, 'zsocket_set_maxmsgsize');
-      Pointer(zsocket_set_multicast_hops) := GetProcAddress(hlib, 'zsocket_set_multicast_hops');
-      Pointer(zsocket_set_rcvtimeo) := GetProcAddress(hlib, 'zsocket_set_rcvtimeo');
-      Pointer(zsocket_set_sndtimeo) := GetProcAddress(hlib, 'zsocket_set_sndtimeo');
-      Pointer(zsocket_set_xpub_verbose) := GetProcAddress(hlib, 'zsocket_set_xpub_verbose');
-      Pointer(zsocket_set_tcp_keepalive) := GetProcAddress(hlib, 'zsocket_set_tcp_keepalive');
-      Pointer(zsocket_set_tcp_keepalive_idle) := GetProcAddress(hlib, 'zsocket_set_tcp_keepalive_idle');
-      Pointer(zsocket_set_tcp_keepalive_cnt) := GetProcAddress(hlib, 'zsocket_set_tcp_keepalive_cnt');
-      Pointer(zsocket_set_tcp_keepalive_intvl) := GetProcAddress(hlib, 'zsocket_set_tcp_keepalive_intvl');
-      Pointer(zsocket_set_tcp_accept_filter) := GetProcAddress(hlib, 'zsocket_set_tcp_accept_filter');
-      Pointer(zsocket_set_hwm) := GetProcAddress(hlib, 'zsocket_set_hwm');
-      Pointer(zsockopt_test) := GetProcAddress(hlib, 'zsockopt_test');
+      Pointer(zsocket_tos) := GetProcAddress(_hlib, 'zsocket_tos');
+      Pointer(zsocket_plain_server) := GetProcAddress(_hlib, 'zsocket_plain_server');
+      Pointer(zsocket_plain_username) := GetProcAddress(_hlib, 'zsocket_plain_username');
+      Pointer(zsocket_plain_password) := GetProcAddress(_hlib, 'zsocket_plain_password');
+      Pointer(zsocket_curve_server) := GetProcAddress(_hlib, 'zsocket_curve_server');
+      Pointer(zsocket_curve_publickey) := GetProcAddress(_hlib, 'zsocket_curve_publickey');
+      Pointer(zsocket_curve_secretkey) := GetProcAddress(_hlib, 'zsocket_curve_secretkey');
+      Pointer(zsocket_curve_serverkey) := GetProcAddress(_hlib, 'zsocket_curve_serverkey');
+      Pointer(zsocket_zap_domain) := GetProcAddress(_hlib, 'zsocket_zap_domain');
+      Pointer(zsocket_mechanism) := GetProcAddress(_hlib, 'zsocket_mechanism');
+      Pointer(zsocket_ipv6) := GetProcAddress(_hlib, 'zsocket_ipv6');
+      Pointer(zsocket_immediate) := GetProcAddress(_hlib, 'zsocket_immediate');
+      Pointer(zsocket_ipv4only) := GetProcAddress(_hlib, 'zsocket_ipv4only');
+      Pointer(zsocket_type) := GetProcAddress(_hlib, 'zsocket_type');
+      Pointer(zsocket_sndhwm) := GetProcAddress(_hlib, 'zsocket_sndhwm');
+      Pointer(zsocket_rcvhwm) := GetProcAddress(_hlib, 'zsocket_rcvhwm');
+      Pointer(zsocket_affinity) := GetProcAddress(_hlib, 'zsocket_affinity');
+      Pointer(zsocket_identity) := GetProcAddress(_hlib, 'zsocket_identity');
+      Pointer(zsocket_rate) := GetProcAddress(_hlib, 'zsocket_rate');
+      Pointer(zsocket_recovery_ivl) := GetProcAddress(_hlib, 'zsocket_recovery_ivl');
+      Pointer(zsocket_sndbuf) := GetProcAddress(_hlib, 'zsocket_sndbuf');
+      Pointer(zsocket_rcvbuf) := GetProcAddress(_hlib, 'zsocket_rcvbuf');
+      Pointer(zsocket_linger) := GetProcAddress(_hlib, 'zsocket_linger');
+      Pointer(zsocket_reconnect_ivl) := GetProcAddress(_hlib, 'zsocket_reconnect_ivl');
+      Pointer(zsocket_reconnect_ivl_max) := GetProcAddress(_hlib, 'zsocket_reconnect_ivl_max');
+      Pointer(zsocket_backlog) := GetProcAddress(_hlib, 'zsocket_backlog');
+      Pointer(zsocket_maxmsgsize) := GetProcAddress(_hlib, 'zsocket_maxmsgsize');
+      Pointer(zsocket_multicast_hops) := GetProcAddress(_hlib, 'zsocket_multicast_hops');
+      Pointer(zsocket_rcvtimeo) := GetProcAddress(_hlib, 'zsocket_rcvtimeo');
+      Pointer(zsocket_sndtimeo) := GetProcAddress(_hlib, 'zsocket_sndtimeo');
+      Pointer(zsocket_tcp_keepalive) := GetProcAddress(_hlib, 'zsocket_tcp_keepalive');
+      Pointer(zsocket_tcp_keepalive_idle) := GetProcAddress(_hlib, 'zsocket_tcp_keepalive_idle');
+      Pointer(zsocket_tcp_keepalive_cnt) := GetProcAddress(_hlib, 'zsocket_tcp_keepalive_cnt');
+      Pointer(zsocket_tcp_keepalive_intvl) := GetProcAddress(_hlib, 'zsocket_tcp_keepalive_intvl');
+      Pointer(zsocket_tcp_accept_filter) := GetProcAddress(_hlib, 'zsocket_tcp_accept_filter');
+      Pointer(zsocket_rcvmore) := GetProcAddress(_hlib, 'zsocket_rcvmore');
+      Pointer(zsocket_fd) := GetProcAddress(_hlib, 'zsocket_fd');
+      Pointer(zsocket_events) := GetProcAddress(_hlib, 'zsocket_events');
+      Pointer(zsocket_last_endpoint) := GetProcAddress(_hlib, 'zsocket_last_endpoint');
+      Pointer(zsocket_set_tos) := GetProcAddress(_hlib, 'zsocket_set_tos');
+      Pointer(zsocket_set_router_handover) := GetProcAddress(_hlib, 'zsocket_set_router_handover');
+      Pointer(zsocket_set_router_mandatory) := GetProcAddress(_hlib, 'zsocket_set_router_mandatory');
+      Pointer(zsocket_set_probe_router) := GetProcAddress(_hlib, 'zsocket_set_probe_router');
+      Pointer(zsocket_set_req_relaxed) := GetProcAddress(_hlib, 'zsocket_set_req_relaxed');
+      Pointer(zsocket_set_req_correlate) := GetProcAddress(_hlib, 'zsocket_set_req_correlate');
+      Pointer(zsocket_set_conflate) := GetProcAddress(_hlib, 'zsocket_set_conflate');
+      Pointer(zsocket_set_plain_server) := GetProcAddress(_hlib, 'zsocket_set_plain_server');
+      Pointer(zsocket_set_plain_username) := GetProcAddress(_hlib, 'zsocket_set_plain_username');
+      Pointer(zsocket_set_plain_password) := GetProcAddress(_hlib, 'zsocket_set_plain_password');
+      Pointer(zsocket_set_curve_server) := GetProcAddress(_hlib, 'zsocket_set_curve_server');
+      Pointer(zsocket_set_curve_publickey) := GetProcAddress(_hlib, 'zsocket_set_curve_publickey');
+      Pointer(zsocket_set_curve_publickey_bin) := GetProcAddress(_hlib, 'zsocket_set_curve_publickey_bin');
+      Pointer(zsocket_set_curve_secretkey) := GetProcAddress(_hlib, 'zsocket_set_curve_secretkey');
+      Pointer(zsocket_set_curve_secretkey_bin) := GetProcAddress(_hlib, 'zsocket_set_curve_secretkey_bin');
+      Pointer(zsocket_set_curve_serverkey) := GetProcAddress(_hlib, 'zsocket_set_curve_serverkey');
+      Pointer(zsocket_set_curve_serverkey_bin) := GetProcAddress(_hlib, 'zsocket_set_curve_serverkey_bin');
+      Pointer(zsocket_set_zap_domain) := GetProcAddress(_hlib, 'zsocket_set_zap_domain');
+      Pointer(zsocket_set_ipv6) := GetProcAddress(_hlib, 'zsocket_set_ipv6');
+      Pointer(zsocket_set_immediate) := GetProcAddress(_hlib, 'zsocket_set_immediate');
+      Pointer(zsocket_set_router_raw) := GetProcAddress(_hlib, 'zsocket_set_router_raw');
+      Pointer(zsocket_set_ipv4only) := GetProcAddress(_hlib, 'zsocket_set_ipv4only');
+      Pointer(zsocket_set_delay_attach_on_connect) := GetProcAddress(_hlib, 'zsocket_set_delay_attach_on_connect');
+      Pointer(zsocket_set_sndhwm) := GetProcAddress(_hlib, 'zsocket_set_sndhwm');
+      Pointer(zsocket_set_rcvhwm) := GetProcAddress(_hlib, 'zsocket_set_rcvhwm');
+      Pointer(zsocket_set_affinity) := GetProcAddress(_hlib, 'zsocket_set_affinity');
+      Pointer(zsocket_set_subscribe) := GetProcAddress(_hlib, 'zsocket_set_subscribe');
+      Pointer(zsocket_set_unsubscribe) := GetProcAddress(_hlib, 'zsocket_set_unsubscribe');
+      Pointer(zsocket_set_identity) := GetProcAddress(_hlib, 'zsocket_set_identity');
+      Pointer(zsocket_set_rate) := GetProcAddress(_hlib, 'zsocket_set_rate');
+      Pointer(zsocket_set_recovery_ivl) := GetProcAddress(_hlib, 'zsocket_set_recovery_ivl');
+      Pointer(zsocket_set_sndbuf) := GetProcAddress(_hlib, 'zsocket_set_sndbuf');
+      Pointer(zsocket_set_rcvbuf) := GetProcAddress(_hlib, 'zsocket_set_rcvbuf');
+      Pointer(zsocket_set_linger) := GetProcAddress(_hlib, 'zsocket_set_linger');
+      Pointer(zsocket_set_reconnect_ivl) := GetProcAddress(_hlib, 'zsocket_set_reconnect_ivl');
+      Pointer(zsocket_set_reconnect_ivl_max) := GetProcAddress(_hlib, 'zsocket_set_reconnect_ivl_max');
+      Pointer(zsocket_set_backlog) := GetProcAddress(_hlib, 'zsocket_set_backlog');
+      Pointer(zsocket_set_maxmsgsize) := GetProcAddress(_hlib, 'zsocket_set_maxmsgsize');
+      Pointer(zsocket_set_multicast_hops) := GetProcAddress(_hlib, 'zsocket_set_multicast_hops');
+      Pointer(zsocket_set_rcvtimeo) := GetProcAddress(_hlib, 'zsocket_set_rcvtimeo');
+      Pointer(zsocket_set_sndtimeo) := GetProcAddress(_hlib, 'zsocket_set_sndtimeo');
+      Pointer(zsocket_set_xpub_verbose) := GetProcAddress(_hlib, 'zsocket_set_xpub_verbose');
+      Pointer(zsocket_set_tcp_keepalive) := GetProcAddress(_hlib, 'zsocket_set_tcp_keepalive');
+      Pointer(zsocket_set_tcp_keepalive_idle) := GetProcAddress(_hlib, 'zsocket_set_tcp_keepalive_idle');
+      Pointer(zsocket_set_tcp_keepalive_cnt) := GetProcAddress(_hlib, 'zsocket_set_tcp_keepalive_cnt');
+      Pointer(zsocket_set_tcp_keepalive_intvl) := GetProcAddress(_hlib, 'zsocket_set_tcp_keepalive_intvl');
+      Pointer(zsocket_set_tcp_accept_filter) := GetProcAddress(_hlib, 'zsocket_set_tcp_accept_filter');
+      Pointer(zsocket_set_hwm) := GetProcAddress(_hlib, 'zsocket_set_hwm');
+      Pointer(zsockopt_test) := GetProcAddress(_hlib, 'zsockopt_test');
 
-      Pointer(zbeacon_new) := GetProcAddress(hlib, 'zbeacon_new');
-      Pointer(zbeacon_destroy) := GetProcAddress(hlib, 'zbeacon_destroy');
-      Pointer(zbeacon_hostname) := GetProcAddress(hlib, 'zbeacon_hostname');
-      Pointer(zbeacon_set_interval) := GetProcAddress(hlib, 'zbeacon_set_interval');
-      Pointer(zbeacon_noecho) := GetProcAddress(hlib, 'zbeacon_noecho');
-      Pointer(zbeacon_publish) := GetProcAddress(hlib, 'zbeacon_publish');
-      Pointer(zbeacon_silence) := GetProcAddress(hlib, 'zbeacon_silence');
-      Pointer(zbeacon_subscribe) := GetProcAddress(hlib, 'zbeacon_subscribe');
-      Pointer(zbeacon_unsubscribe) := GetProcAddress(hlib, 'zbeacon_unsubscribe');
-      Pointer(zbeacon_socket) := GetProcAddress(hlib, 'zbeacon_socket');
-      Pointer(zbeacon_test) := GetProcAddress(hlib, 'zbeacon_test');
+      Pointer(zbeacon_new) := GetProcAddress(_hlib, 'zbeacon_new');
+      Pointer(zbeacon_destroy) := GetProcAddress(_hlib, 'zbeacon_destroy');
+      Pointer(zbeacon_hostname) := GetProcAddress(_hlib, 'zbeacon_hostname');
+      Pointer(zbeacon_set_interval) := GetProcAddress(_hlib, 'zbeacon_set_interval');
+      Pointer(zbeacon_noecho) := GetProcAddress(_hlib, 'zbeacon_noecho');
+      Pointer(zbeacon_publish) := GetProcAddress(_hlib, 'zbeacon_publish');
+      Pointer(zbeacon_silence) := GetProcAddress(_hlib, 'zbeacon_silence');
+      Pointer(zbeacon_subscribe) := GetProcAddress(_hlib, 'zbeacon_subscribe');
+      Pointer(zbeacon_unsubscribe) := GetProcAddress(_hlib, 'zbeacon_unsubscribe');
+      Pointer(zbeacon_socket) := GetProcAddress(_hlib, 'zbeacon_socket');
+      Pointer(zbeacon_test) := GetProcAddress(_hlib, 'zbeacon_test');
 
-      Pointer(zuuid_new) := GetProcAddress(hlib, 'zuuid_new');
-      Pointer(zuuid_destroy) := GetProcAddress(hlib, 'zuuid_destroy');
-      Pointer(zuuid_data) := GetProcAddress(hlib, 'zuuid_data');
-      Pointer(zuuid_size) := GetProcAddress(hlib, 'zuuid_size');
-      Pointer(zuuid_str) := GetProcAddress(hlib, 'zuuid_str');
-      Pointer(zuuid_set) := GetProcAddress(hlib, 'zuuid_set');
-      Pointer(zuuid_export) := GetProcAddress(hlib, 'zuuid_export');
-      Pointer(zuuid_eq) := GetProcAddress(hlib, 'zuuid_eq');
-      Pointer(zuuid_neq) := GetProcAddress(hlib, 'zuuid_neq');
-      Pointer(zuuid_dup) := GetProcAddress(hlib, 'zuuid_dup');
-      Pointer(zuuid_test) := GetProcAddress(hlib, 'zuuid_test');
+      Pointer(zuuid_new) := GetProcAddress(_hlib, 'zuuid_new');
+      Pointer(zuuid_destroy) := GetProcAddress(_hlib, 'zuuid_destroy');
+      Pointer(zuuid_data) := GetProcAddress(_hlib, 'zuuid_data');
+      Pointer(zuuid_size) := GetProcAddress(_hlib, 'zuuid_size');
+      Pointer(zuuid_str) := GetProcAddress(_hlib, 'zuuid_str');
+      Pointer(zuuid_set) := GetProcAddress(_hlib, 'zuuid_set');
+      Pointer(zuuid_export) := GetProcAddress(_hlib, 'zuuid_export');
+      Pointer(zuuid_eq) := GetProcAddress(_hlib, 'zuuid_eq');
+      Pointer(zuuid_neq) := GetProcAddress(_hlib, 'zuuid_neq');
+      Pointer(zuuid_dup) := GetProcAddress(_hlib, 'zuuid_dup');
+      Pointer(zuuid_test) := GetProcAddress(_hlib, 'zuuid_test');
     end;
 
 
-initialization
-  LoadLib('czmq.dll');
-
-finalization
-  FreeLib('czmq.dll');
 
 end.
