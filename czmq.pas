@@ -543,7 +543,7 @@ const
   {  Self test of this class }
     function zsockopt_test(verbose: Longbool): Longint; cdecl;
 
-{$ENDIF ~CZMQ_LINKONREQUEST}
+    {$ENDIF ~CZMQ_LINKONREQUEST}
 
     {** zframe **}
 
@@ -557,6 +557,7 @@ const
       FRAME_REUSE = 2;
       FRAME_DONTWAIT = 4;
 
+  {$IFDEF CZMQ_LINKONREQUEST}
   var
     {  Create a new frame with optional size, and optional data }
       zframe_new : function(const data; size: NativeUInt): pzframe_t; cdecl;
@@ -625,6 +626,31 @@ const
     {  Self test of this class }
       zframe_test : function(verbose: Longbool): Longint; cdecl;
 
+    {$ELSE ~CZMQ_LINKONREQUEST}
+
+      function zframe_new(const data; size: NativeUInt): pzframe_t; cdecl;
+      function zframe_new_empty: pzframe_t; cdecl;
+      procedure zframe_destroy(var self: pzframe_t); cdecl;
+      function zframe_recv(socket: Pointer): pzframe_t; cdecl;
+      function zframe_recv_nowait(socket: Pointer): pzframe_t; cdecl;
+      function zframe_send(var self: pzframe_t; socket: Pointer; flags: Longint): Longint; cdecl;
+      function zframe_size(self: pzframe_t): NativeUInt; cdecl;
+      function zframe_data(self: pzframe_t): PByte; cdecl;
+      function zframe_dup(self: pzframe_t): pzframe_t; cdecl;
+      function zframe_strhex(self: pzframe_t): PAnsiChar; cdecl;
+      function zframe_strdup(self: pzframe_t): PAnsiChar; cdecl;
+      function zframe_streq(self: pzframe_t; _string: PAnsiChar): Longbool; cdecl;
+      function zframe_more(self: pzframe_t): Longint; cdecl;
+      procedure zframe_set_more(self: pzframe_t; more: Longint); cdecl;
+      function zframe_eq(self: pzframe_t; other: pzframe_t): Longbool; cdecl;
+      procedure zframe_fprint(self: pzframe_t; prefix: PAnsiChar; afile: Pointer); cdecl;
+      procedure zframe_print(self: pzframe_t; prefix: PAnsiChar); cdecl;
+      procedure zframe_reset(self: pzframe_t; const data; size: size_t); cdecl;
+      function zframe_put_block(self: pzframe_t; data: PByteArray; size: size_t): Longint; cdecl;
+      function zframe_test(verbose: Longbool): Longint; cdecl;
+
+    {$ENDIF ~CZMQ_LINKONREQUEST}
+
 
   {** zmsg **}
 
@@ -633,6 +659,8 @@ const
     zmsg_t = record // opaque dataType
     end;
 
+
+  {$IFDEF CZMQ_LINKONREQUEST}
 
   var
   {  Create a new empty message object }
@@ -760,6 +788,40 @@ const
   {  Self test of this class }
     zmsg_test : function(verbose: Longbool): Longint; cdecl;
     
+  {$ELSE ~CZMQ_LINKONREQUEST}
+
+    function: zmsg_new: pzmsg_t; cdecl;
+    procedure zmsg_destroy(var self: pzmsg_t); cdecl;
+    function zmsg_recv(socket: Pointer): pzmsg_t; cdecl;
+    function zmsg_recv_nowait(socket: Pointer): pzmsg_t; cdecl;
+    function zmsg_send(var self: pzmsg_t; socket: Pointer): Longint; cdecl;
+    function zmsg_size(self: pzmsg_t): NativeUInt; cdecl;
+    function zmsg_content_size(self: pzmsg_t): NativeUInt; cdecl;
+    function zmsg_prepend(self: pzmsg_t; var frame_p: pzframe_t): Longint; cdecl;
+    function zmsg_append(self: pzmsg_t; var frame_p: pzframe_t): Longint; cdecl;
+    function zmsg_pop(self: pzmsg_t): pzframe_t; cdecl;
+    function zmsg_pushmem(self: pzmsg_t; const src; size: NativeUInt): Longint; cdecl;
+    function zmsg_addmem(self: pzmsg_t; const src; size: NativeUInt): Longint; cdecl;
+    function zmsg_pushstr(self: pzmsg_t; astring: PAnsiChar): Longint; cdecl;
+    function zmsg_addstr(self: pzmsg_t; astring: PAnsiChar): Longint; cdecl;
+    function zmsg_pushstrf(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; cdecl; varargs;
+    function zmsg_addstrf(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; cdecl; varargs;
+    function zmsg_popstr(self: pzmsg_t): PAnsiChar; cdecl;
+    function zmsg_unwrap(self: pzmsg_t): pzframe_t; cdecl;
+    procedure zmsg_remove(self: pzmsg_t; var frame:zframe_t); cdecl;
+    function zmsg_first(self: pzmsg_t): pzframe_t; cdecl;
+    function zmsg_next(self: pzmsg_t): pzframe_t; cdecl;
+    function zmsg_last(self: pzmsg_t): pzframe_t; cdecl;
+    function zmsg_save(self: pzmsg_t; afile: Pointer): Longint; cdecl;
+    function zmsg_load(self: pzmsg_t; afile: Pointer): pzmsg_t; cdecl;
+    function zmsg_encode(self: pzmsg_t; var buffer:Pbyte): NativeUInt; cdecl;
+    function zmsg_decode(var buffer; buffer_size: NativeUInt): pzmsg_t; cdecl;
+    function zmsg_dup(self: pzmsg_t): pzmsg_t; cdecl;
+    procedure zmsg_fprint(self: pzmsg_t; afile: Pointer); cdecl;
+    procedure zmsg_print(self: pzmsg_t); cdecl;
+    function zmsg_test(verbose: Longbool): Longint; cdecl;
+
+  {$ENDIF ~CZMQ_LINKONREQUEST}
 
 {** zloop **}
 
@@ -767,13 +829,14 @@ const
     pzloop_t = ^zloop_t;
     zloop_t = record // opaque struct
     end;
-    
+
     //  Callback function for reactor events
     zloop_fn = function(loop: pzloop_t; poolitem: Pointer; arg: Pointer): Longint; cdecl;
     
     // Callback for reactor timer events
     zloop_timer_fn = function(loop: pzloop_t; timer_id: Longint; arg: Pointer): Longint; cdecl;
-    
+
+  {$IFDEF CZMQ_LINKONREQUEST}
   var
   {  Create a new zloop reactor }
     zloop_new : function: pzloop_t; cdecl;
@@ -819,6 +882,21 @@ const
   {  Self test of this class }
     zloop_test : procedure(verbose: Longbool); cdecl;
 
+  {$ELSE ~CZMQ_LINKONREQUEST}
+
+    function: zloop_new: pzloop_t; cdecl;
+    procedure zloop_destroy(var self: pzloop_t); cdecl;
+    function zloop_poller(self: pzloop_t; poolitem: Pointer; handler: zloop_fn; arg: Pointer): Longint; cdecl;
+    procedure zloop_poller_end(self: pzloop_t; poolitem: Pointer); cdecl;
+    procedure zloop_set_tolerant(self: pzloop_t; poolitem: Pointer); cdecl;
+    function zloop_timer(self: pzloop_t; delay: NativeUInt; times: NativeUInt; handler: zloop_timer_fn; arg: Pointer): Longint; cdecl;
+    function zloop_timer_end(self: pzloop_t; timer_id: Longint): Longint; cdecl;
+    procedure zloop_set_verbose(self: pzloop_t; verbose: Longbool); cdecl;
+    function zloop_start(self: pzloop_t): Longint; cdecl;
+    procedure zloop_test(verbose: Longbool); cdecl;
+
+  {$ENDIF ~CZMQ_LINKONREQUEST}
+
 {** zauth **}
 
   type
@@ -828,6 +906,8 @@ const
 
   const
     CURVE_ALLOW_ANY = '*';    
+
+  {$IFDEF CZMQ_LINKONREQUEST}
 
   var
   {  Constructor }
@@ -873,12 +953,27 @@ const
   {  Selftest }
     zauth_test : function(verbose: Longbool): Longint; cdecl;
 
+  {$ELSE ~CZMQ_LINKONREQUEST}
+
+    function zauth_new(ctx: pzctx_t): pzauth_t; cdecl;
+    procedure zauth_allow(self: pzauth_t; address: PAnsiChar); cdecl;
+    procedure zauth_deny(self: pzauth_t; address: PAnsiChar); cdecl;
+    procedure zauth_configure_plain(self: pzauth_t; domain: PAnsiChar; filename: PAnsiChar); cdecl;
+    procedure zauth_configure_curve(self: pzauth_t; domain: PAnsiChar; location: PAnsiChar); cdecl;
+    procedure zauth_set_verbose(self: pzauth_t; verbose: Longbool); cdecl;
+    procedure zauth_destroy(var self: pzauth_t); cdecl;
+    function zauth_test(verbose: Longbool): Longint; cdecl;
+
+  {$ENDIF ~CZMQ_LINKONREQUEST}
+
+
   {** zpoller **}
   type
     pzpoller_t = ^zpoller_t;
     zpoller_t = record
     end;
 
+  {$IFDEF CZMQ_LINKONREQUEST}
   var
   {  Create new poller }
     zpoller_new : function(var reader: Pointer{, ...}): pzpoller_t; cdecl; varargs;
@@ -909,6 +1004,16 @@ const
   {  Self test of this class }
     zpoller_test : function(verbose: Longbool): Longint; cdecl;
 
+  {$ELSE ~CZMQ_LINKONREQUEST}
+    zpoller_new : function(var reader: Pointer{, ...}): pzpoller_t; cdecl; varargs;
+    zpoller_destroy : procedure(var self: pzpoller_t); cdecl;
+    zpoller_add : function(self: pzpoller_t; reader: Pointer): Longint; cdecl;
+    zpoller_wait : function(self: pzpoller_t; timeout: Longint): Pointer; cdecl;
+    zpoller_expired : function(self: pzpoller_t): Longbool; cdecl;
+    zpoller_terminated : function(self: pzpoller_t): Longbool; cdecl;
+    zpoller_test : function(verbose: Longbool): Longint; cdecl;
+  {$ENDIF ~CZMQ_LINKONREQUEST}
+
   {** zmonitor **}
   
   type
@@ -916,6 +1021,7 @@ const
     zmonitor_t = record // opaque struct
     end;
 
+  {$IFDEF CZMQ_LINKONREQUEST}
   var
   {  Create a new socket monitor }
     zmonitor_new : function(ctx: pzctx_t; socket: Pointer; events: Longint): pzmonitor_t; cdecl;
@@ -936,12 +1042,24 @@ const
   { Self test of this class }
     zmonitor_test : procedure(verbose: Longbool); cdecl;
 
+  {$ELSE ~CZMQ_LINKONREQUEST}
+
+    function zmonitor_new(ctx: pzctx_t; socket: Pointer; events: Longint): pzmonitor_t; cdecl;
+    procedure zmonitor_destroy(var self: pzmonitor_t); cdecl;
+    function zmonitor_recv(self: pzmonitor_t): pzmsg_t; cdecl;
+    function zmonitor_socket(self: pzmonitor_t): Pointer; cdecl;
+    procedure zmonitor_set_verbose(self: pzmonitor_t; verbose: Longbool); cdecl;
+    procedure zmonitor_test(verbose: Longbool); cdecl;
+
+  {$ENDIF ~CZMQ_LINKONREQUEST}
+
   {** zbeacon **}
   type
     pzbeacon_t = ^zbeacon_t;
     zbeacon_t = record
     end;
     
+  {$IFDEF CZMQ_LINKONREQUEST}
   var
   {  Create a new beacon on a certain UDP port }
     zbeacon_new : function(ctx: pzctx_t; port_nbr: Longint): pzbeacon_t; cdecl;
@@ -976,6 +1094,20 @@ const
   {  Self test of this class }
     zbeacon_test : procedure(verbose: Longbool); cdecl;
 
+  {$ELSE ~CZMQ_LINKONREQUEST}
+    function zbeacon_new(ctx: pzctx_t; port_nbr: Longint): pzbeacon_t; cdecl;
+    procedure zbeacon_destroy(self: pzbeacon_t); cdecl;
+    function zbeacon_hostname(self: pzbeacon_t): PAnsiChar; cdecl;
+    procedure zbeacon_set_interval(self: pzbeacon_t; interval: Longint); cdecl;
+    procedure zbeacon_noecho(self: pzbeacon_t); cdecl;
+    procedure zbeacon_publish(self: pzbeacon_t; transmit: PByteArray; size: NativeUInt); cdecl;
+    procedure zbeacon_silence(self: pzbeacon_t); cdecl;
+    procedure zbeacon_subscribe(self: pzbeacon_t; var filter:byte; size: NativeUInt); cdecl;
+    procedure zbeacon_unsubscribe(self: pzbeacon_t); cdecl;
+    function zbeacon_socket(self: pzbeacon_t): Pointer; cdecl;
+    procedure zbeacon_test(verbose: Longbool); cdecl;
+  {$ENDIF ~CZMQ_LINKONREQUEST}
+
   {** zuuid **}
 
   const
@@ -986,6 +1118,7 @@ const
     zuuid_t = record // opaque struct
     end;
 
+  {$IFDEF CZMQ_LINKONREQUEST}
   var
   {  Constructor }
     zuuid_new : function: pzuuid_t; cdecl;
@@ -1020,6 +1153,19 @@ const
   {  Self test of this class }
     zuuid_test : function(verbose: Longbool): Longint; cdecl;
 
+  {$ELSE ~CZMQ_LINKONREQUEST}
+    function: zuuid_new: pzuuid_t; cdecl;
+    procedure zuuid_destroy(var self:pzuuid_t); cdecl;
+    function zuuid_data(self: pzuuid_t): PByteArray; cdecl;
+    function zuuid_size(self: pzuuid_t): NativeUInt; cdecl;
+    function zuuid_str(self: pzuuid_t): PAnsiChar; cdecl;
+    procedure zuuid_set(self: pzuuid_t; source: PByteArray); cdecl;
+    procedure zuuid_export(self: pzuuid_t; target: PByteArray); cdecl;
+    function zuuid_eq(self: pzuuid_t; compare: PByteArray): Longbool; cdecl;
+    function zuuid_neq(self: pzuuid_t; compare: PByteArray): Longbool; cdecl;
+    function zuuid_dup(self: pzuuid_t): pzuuid_t; cdecl;
+    function zuuid_test(verbose: Longbool): Longint; cdecl;
+  {$ENDIF ~CZMQ_LINKONREQUEST}
 
   procedure LoadLib(lib : PAnsiChar);
   procedure FreeLib;
@@ -1034,7 +1180,6 @@ implementation
 
   var
     _hlib : TLibHandle;
-
 
   procedure FreeLib;
     begin
