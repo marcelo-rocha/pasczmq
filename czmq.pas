@@ -37,8 +37,14 @@ interface
 {$IFNDEF DELPHI2009_UP}
 //    NativeUInt = Cardinal; 
 {$ENDIF}
-
     size_t = NativeUInt;
+
+const
+{$IFDEF FPC}
+  CZMQ_LIB = 'libczmq.so';
+{$ELSE ~FPC}
+  CZMQ_LIB = 'czmq.dll';
+{$ENDIF ~FPC}
 
   {** 0MQ errors **}
 
@@ -114,28 +120,28 @@ const
 {$ELSE ~CZMQ_LINKONREQUEST}
 
   {  Create new context, returns context object, replaces zmq_init }
-    function zctx_new: pzctx_t; cdecl;
+    function zctx_new: pzctx_t; cdecl; external CZMQ_LIB;
 
   {  Destroy context and all sockets in it, replaces zmq_term }
-    procedure zctx_destroy(var self: pzctx_t); cdecl;
+    procedure zctx_destroy(var self: pzctx_t); cdecl; external CZMQ_LIB;
 
   {  Create new shadow context, returns context object }
-    function zctx_shadow(self: pzctx_t): pzctx_t; cdecl;
+    function zctx_shadow(self: pzctx_t): pzctx_t; cdecl; external CZMQ_LIB;
 
   {  Create a new context by shadowing a plain zmq context }
-    function zctx_shadow_zmq_ctx(zmqctx: Pointer): pzctx_t; cdecl;
+    function zctx_shadow_zmq_ctx(zmqctx: Pointer): pzctx_t; cdecl; external CZMQ_LIB;
 
   {  Raise default I/O threads from 1, for crazy heavy applications }
   {  The rule of thumb is one I/O thread per gigabyte of traffic in }
   {  or out. Call this method before creating any sockets on the context, }
   {  or calling zctx_shadow, or the setting will have no effect. }
-    procedure zctx_set_iothreads(self: pzctx_t; iothreads: Longint); cdecl;
+    procedure zctx_set_iothreads(self: pzctx_t; iothreads: Longint); cdecl; external CZMQ_LIB;
 
   {  Set msecs to flush sockets when closing them, see the ZMQ_LINGER }
   {  man page section for more details. By default, set to zero, so }
   {  any in-transit messages are discarded when you destroy a socket or }
   {  a context. }
-    procedure zctx_set_linger(self: pzctx_t; linger: Longint); cdecl;
+    procedure zctx_set_linger(self: pzctx_t; linger: Longint); cdecl; external CZMQ_LIB;
 
   {  Set initial high-water mark for inter-thread pipe sockets. Note that }
   {  this setting is separate from the default for normal sockets. You  }
@@ -143,24 +149,24 @@ const
   {  will cause blocked threads, and an infinite setting can cause memory }
   {  exhaustion. The default, no matter the underlying ZeroMQ version, is }
   {  1,000. }
-    procedure zctx_set_pipehwm(self: pzctx_t; pipehwm: Longint); cdecl;
+    procedure zctx_set_pipehwm(self: pzctx_t; pipehwm: Longint); cdecl; external CZMQ_LIB;
 
   {  Set initial send HWM for all new normal sockets created in context. }
   {  You can set this per-socket after the socket is created. }
   {  The default, no matter the underlying ZeroMQ version, is 1,000. }
-    procedure zctx_set_sndhwm(self: pzctx_t; sndhwm: Longint); cdecl;
+    procedure zctx_set_sndhwm(self: pzctx_t; sndhwm: Longint); cdecl; external CZMQ_LIB;
     
   {  Set initial receive HWM for all new normal sockets created in context. }
   {  You can set this per-socket after the socket is created. }
   {  The default, no matter the underlying ZeroMQ version, is 1,000. }
-    procedure zctx_set_rcvhwm(self: pzctx_t; rcvhwm: Longint); cdecl;
+    procedure zctx_set_rcvhwm(self: pzctx_t; rcvhwm: Longint); cdecl; external CZMQ_LIB;
     
   {  Return low-level 0MQ context object, will be NULL before first socket }
   {  is created. Use with care. }
-    function zctx_underlying(self: pzctx_t): Pointer; cdecl;
+    function zctx_underlying(self: pzctx_t): Pointer; cdecl; external CZMQ_LIB;
     
   {  Self test of this class }
-    function zctx_test(verbose: Longbool): Longint; cdecl;
+    function zctx_test(verbose: Longbool): Longint; cdecl; external CZMQ_LIB;
     
   var
   {  Global signal indicator, TRUE when user presses Ctrl-C or the process }
@@ -184,11 +190,11 @@ const
   type
     zsocket_new_func = function(self: pzctx_t; atype: Longint): Pointer; cdecl;
     zsocket_destroy_func = procedure(self: pzctx_t; socket: Pointer); cdecl;
-    zsocket_bind_func = function(socket: Pointer; format: PAnsiChar): Longint; cdecl; varargs;
-    zsocket_unbind_func = function(socket: Pointer; format: PAnsiChar): Longint; cdecl; varargs;
-    zsocket_connect_func = function(socket: Pointer; format: PAnsiChar): Longint; cdecl; varargs;
-    zsocket_disconnect_func = function(socket: Pointer; format: PAnsiChar): Longint; cdecl; varargs;
-    zsocket_poll_func = function(socket: Pointer; msecs: Longint): Longbool; cdecl; varargs;
+    zsocket_bind_func = function(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl;
+    zsocket_unbind_func = function(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl;
+    zsocket_connect_func = function(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl;
+    zsocket_disconnect_func = function(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl;
+    zsocket_poll_func = function(socket: Pointer; msecs: Longint): Longbool; varargs; cdecl;
     zsocket_type_str_func = function(socket: Pointer): PAnsiChar; cdecl;
     zsocket_sendmem_func = function(socket: Pointer; const data; size: size_t;
                            flags: Longint): Longint; cdecl;
@@ -216,54 +222,54 @@ const
   {  Use this to get automatic management of the socket at shutdown. }
   {  Note: SUB sockets do not automatically subscribe to everything; you }
   {  must set filters explicitly. }
-    function zsocket_new(self: pzctx_t; atype: Longint): Pointer; cdecl;
+    function zsocket_new(self: pzctx_t; atype: Longint): Pointer; cdecl; external CZMQ_LIB;
     
   {  Destroy a socket within our CZMQ context, replaces zmq_close. }
-    procedure zsocket_destroy(self: pzctx_t; socket: Pointer); cdecl;
+    procedure zsocket_destroy(self: pzctx_t; socket: Pointer); cdecl; external CZMQ_LIB;
     
   {  Bind a socket to a formatted endpoint. If the port is specified as }
   {  '*', binds to any free port from ZSOCKET_DYNFROM to ZSOCKET_DYNTO }
   {  and returns the actual port number used. Otherwise asserts that the }
   {  bind succeeded with the specified port number. Always returns the }
   {  port number if successful. }
-    function zsocket_bind(socket: Pointer; format: PAnsiChar): Longint; cdecl; varargs;
+    function zsocket_bind(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl; external CZMQ_LIB;
 
   {  Unbind a socket from a formatted endpoint. }
   {  Returns 0 if OK, -1 if the endpoint was invalid or the function }
   {  isn't supported. }
-    function zsocket_unbind(socket: Pointer; format: PAnsiChar): Longint; cdecl; varargs;
+    function zsocket_unbind(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl; external CZMQ_LIB;
     
   {  Connect a socket to a formatted endpoint }
   {  Returns 0 if OK, -1 if the endpoint was invalid. }
-    function zsocket_connect(socket: Pointer; format: PAnsiChar): Longint; cdecl; varargs;
+    function zsocket_connect(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl; external CZMQ_LIB;
     
   {  Disonnect a socket from a formatted endpoint }
   {  Returns 0 if OK, -1 if the endpoint was invalid or the function }
   {  isn't supported. }
-    function zsocket_disconnect(socket: Pointer; format: PAnsiChar): Longint; cdecl; varargs;
+    function zsocket_disconnect(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl; external CZMQ_LIB;
     
   {  Poll for input events on the socket. Returns TRUE if there is input }
   {  ready on the socket, else FALSE. }
-    function zsocket_poll(socket: Pointer; msecs: Longint): Longbool; cdecl; varargs;
+    function zsocket_poll(socket: Pointer; msecs: Longint): Longbool; varargs; cdecl; external CZMQ_LIB;
     
   {  Returns socket type as printable constant string }
-    function zsocket_type_str(socket: Pointer): PAnsiChar; cdecl;
+    function zsocket_type_str(socket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
     
   {  Send data over a socket as a single message frame. }
   {  Accepts these flags: ZFRAME_MORE and ZFRAME_DONTWAIT. }
-    function zsocket_sendmem(socket: Pointer; const data; size: size_t; flags: Longint): Longint; cdecl;
+    function zsocket_sendmem(socket: Pointer; const data; size: size_t; flags: Longint): Longint; cdecl; external CZMQ_LIB;
     
   {  Send a signal over a socket. A signal is a zero-byte message. }
   {  Signals are used primarily between threads, over pipe sockets. }
   {  Returns -1 if there was an error sending the signal. }
-    function zsocket_signal(socket: Pointer): Longint; cdecl;
+    function zsocket_signal(socket: Pointer): Longint; cdecl; external CZMQ_LIB;
     
   {  Wait on a signal. Use this to coordinate between threads, over }
   {  pipe pairs. Returns -1 on error, 0 on success. }
-    function zsocket_wait(socket: Pointer): Longint; cdecl;
+    function zsocket_wait(socket: Pointer): Longint; cdecl; external CZMQ_LIB;
     
   {  Self test of this class }
-    function zsocket_test(verbose: Longbool): Longint; cdecl;
+    function zsocket_test(verbose: Longbool): Longint; cdecl; external CZMQ_LIB;
 
 {$ENDIF ~CZMQ_LINKONREQUEST}
 
@@ -451,97 +457,97 @@ const
     zsockopt_test : zsockopt_test_func;
 
 {$ELSE ~CZMQ_LINKONREQUEST}
-    function zsocket_tos(zocket: Pointer): Longint; cdecl;
-    function zsocket_plain_server(zocket: Pointer): Longint; cdecl;
-    function zsocket_plain_username(zocket: Pointer): PAnsiChar; cdecl;
-    function zsocket_plain_password(zocket: Pointer): PAnsiChar; cdecl;
-    function zsocket_curve_server(zocket: Pointer): Longint; cdecl;
-    function zsocket_curve_publickey(zocket: Pointer): PAnsiChar; cdecl;
-    function zsocket_curve_secretkey(zocket: Pointer): PAnsiChar; cdecl;
-    function zsocket_curve_serverkey(zocket: Pointer): PAnsiChar; cdecl;
-    function zsocket_zap_domain(zocket: Pointer): PAnsiChar; cdecl;
-    function zsocket_mechanism(zocket: Pointer): Longint; cdecl;
-    function zsocket_ipv6(zocket: Pointer): Longint; cdecl;
-    function zsocket_immediate(zocket: Pointer): Longint; cdecl;
-    function zsocket_ipv4only(zocket: Pointer): Longint; cdecl;
-    function zsocket_type(zocket: Pointer): Longint; cdecl;
-    function zsocket_sndhwm(zocket: Pointer): Longint; cdecl;
-    function zsocket_rcvhwm(zocket: Pointer): Longint; cdecl;
-    function zsocket_affinity(zocket: Pointer): Longint; cdecl;
-    function zsocket_identity(zocket: Pointer): PAnsiChar; cdecl;
-    function zsocket_rate(zocket: Pointer): Longint; cdecl;
-    function zsocket_recovery_ivl(zocket: Pointer): Longint; cdecl;
-    function zsocket_sndbuf(zocket: Pointer): Longint; cdecl;
-    function zsocket_rcvbuf(zocket: Pointer): Longint; cdecl;
-    function zsocket_linger(zocket: Pointer): Longint; cdecl;
-    function zsocket_reconnect_ivl(zocket: Pointer): Longint; cdecl;
-    function zsocket_reconnect_ivl_max(zocket: Pointer): Longint; cdecl;
-    function zsocket_backlog(zocket: Pointer): Longint; cdecl;
-    function zsocket_maxmsgsize(zocket: Pointer): Longint; cdecl;
-    function zsocket_multicast_hops(zocket: Pointer): Longint; cdecl;
-    function zsocket_rcvtimeo(zocket: Pointer): Longint; cdecl;
-    function zsocket_sndtimeo(zocket: Pointer): Longint; cdecl;
-    function zsocket_tcp_keepalive(zocket: Pointer): Longint; cdecl;
-    function zsocket_tcp_keepalive_idle(zocket: Pointer): Longint; cdecl;
-    function zsocket_tcp_keepalive_cnt(zocket: Pointer): Longint; cdecl;
-    function zsocket_tcp_keepalive_intvl(zocket: Pointer): Longint; cdecl;
-    function zsocket_tcp_accept_filter(zocket: Pointer): PAnsiChar; cdecl;
-    function zsocket_rcvmore(zocket: Pointer): Longint; cdecl;
-    function zsocket_fd(zocket: Pointer): Longint; cdecl;
-    function zsocket_events(zocket: Pointer): Longint; cdecl;
-    function zsocket_last_endpoint(zocket: Pointer): PAnsiChar; cdecl;
+    function zsocket_tos(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_plain_server(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_plain_username(zocket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
+    function zsocket_plain_password(zocket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
+    function zsocket_curve_server(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_curve_publickey(zocket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
+    function zsocket_curve_secretkey(zocket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
+    function zsocket_curve_serverkey(zocket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
+    function zsocket_zap_domain(zocket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
+    function zsocket_mechanism(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_ipv6(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_immediate(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_ipv4only(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_type(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_sndhwm(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_rcvhwm(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_affinity(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_identity(zocket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
+    function zsocket_rate(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_recovery_ivl(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_sndbuf(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_rcvbuf(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_linger(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_reconnect_ivl(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_reconnect_ivl_max(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_backlog(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_maxmsgsize(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_multicast_hops(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_rcvtimeo(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_sndtimeo(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_tcp_keepalive(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_tcp_keepalive_idle(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_tcp_keepalive_cnt(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_tcp_keepalive_intvl(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_tcp_accept_filter(zocket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
+    function zsocket_rcvmore(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_fd(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_events(zocket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_last_endpoint(zocket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
   {  Set socket options }
-    procedure zsocket_set_tos(zocket: Pointer; tos: Longint); cdecl;
-    procedure zsocket_set_router_handover(zocket: Pointer; router_handover: Longint); cdecl;
-    procedure zsocket_set_router_mandatory(zocket: Pointer; router_mandatory: Longint); cdecl;
-    procedure zsocket_set_probe_router(zocket: Pointer; probe_router: Longint); cdecl;
-    procedure zsocket_set_req_relaxed(zocket: Pointer; req_relaxed: Longint); cdecl;
-    procedure zsocket_set_req_correlate(zocket: Pointer; req_correlate: Longint); cdecl;
-    procedure zsocket_set_conflate(zocket: Pointer; conflate: Longint); cdecl;
-    procedure zsocket_set_plain_server(zocket: Pointer; plain_server: Longint); cdecl;
-    procedure zsocket_set_plain_username(zocket: Pointer; plain_username: PAnsiChar); cdecl;
-    procedure zsocket_set_plain_password(zocket: Pointer; plain_password: PAnsiChar); cdecl;
-    procedure zsocket_set_curve_server(zocket: Pointer; curve_server: Longint); cdecl;
-    procedure zsocket_set_curve_publickey(zocket: Pointer; curve_publickey: PAnsiChar); cdecl;
-    procedure zsocket_set_curve_publickey_bin(zocket: Pointer; var curve_publickey:byte); cdecl;
-    procedure zsocket_set_curve_secretkey(zocket: Pointer; curve_secretkey: PAnsiChar); cdecl;
-    procedure zsocket_set_curve_secretkey_bin(zocket: Pointer; var curve_secretkey:byte); cdecl;
-    procedure zsocket_set_curve_serverkey(zocket: Pointer; curve_serverkey: PAnsiChar); cdecl;
-    procedure zsocket_set_curve_serverkey_bin(zocket: Pointer; var curve_serverkey:byte); cdecl;
-    procedure zsocket_set_zap_domain(zocket: Pointer; zap_domain: PAnsiChar); cdecl;
-    procedure zsocket_set_ipv6(zocket: Pointer; ipv6: Longint); cdecl;
-    procedure zsocket_set_immediate(zocket: Pointer; immediate: Longint); cdecl;
-    procedure zsocket_set_router_raw(zocket: Pointer; router_raw: Longint); cdecl;
-    procedure zsocket_set_ipv4only(zocket: Pointer; ipv4only: Longint); cdecl;
-    procedure zsocket_set_delay_attach_on_connect(zocket: Pointer; delay_attach_on_connect: Longint); cdecl;
-    procedure zsocket_set_sndhwm(zocket: Pointer; sndhwm: Longint); cdecl;
-    procedure zsocket_set_rcvhwm(zocket: Pointer; rcvhwm: Longint); cdecl;
-    procedure zsocket_set_affinity(zocket: Pointer; affinity: Longint); cdecl;
-    procedure zsocket_set_subscribe(zocket: Pointer; subscribe: PAnsiChar); cdecl;
-    procedure zsocket_set_unsubscribe(zocket: Pointer; unsubscribe: PAnsiChar); cdecl;
-    procedure zsocket_set_identity(zocket: Pointer; identity: PAnsiChar); cdecl;
-    procedure zsocket_set_rate(zocket: Pointer; rate: Longint); cdecl;
-    procedure zsocket_set_recovery_ivl(zocket: Pointer; recovery_ivl: Longint); cdecl;
-    procedure zsocket_set_sndbuf(zocket: Pointer; sndbuf: Longint); cdecl;
-    procedure zsocket_set_rcvbuf(zocket: Pointer; rcvbuf: Longint); cdecl;
-    procedure zsocket_set_linger(zocket: Pointer; linger: Longint); cdecl;
-    procedure zsocket_set_reconnect_ivl(zocket: Pointer; reconnect_ivl: Longint); cdecl;
-    procedure zsocket_set_reconnect_ivl_max(zocket: Pointer; reconnect_ivl_max: Longint); cdecl;
-    procedure zsocket_set_backlog(zocket: Pointer; backlog: Longint); cdecl;
-    procedure zsocket_set_maxmsgsize(zocket: Pointer; maxmsgsize: Longint); cdecl;
-    procedure zsocket_set_multicast_hops(zocket: Pointer; multicast_hops: Longint); cdecl;
-    procedure zsocket_set_rcvtimeo(zocket: Pointer; rcvtimeo: Longint); cdecl;
-    procedure zsocket_set_sndtimeo(zocket: Pointer; sndtimeo: Longint); cdecl;
-    procedure zsocket_set_xpub_verbose(zocket: Pointer; xpub_verbose: Longint); cdecl;
-    procedure zsocket_set_tcp_keepalive(zocket: Pointer; tcp_keepalive: Longint); cdecl;
-    procedure zsocket_set_tcp_keepalive_idle(zocket: Pointer; tcp_keepalive_idle: Longint); cdecl;
-    procedure zsocket_set_tcp_keepalive_cnt(zocket: Pointer; tcp_keepalive_cnt: Longint); cdecl;
-    procedure zsocket_set_tcp_keepalive_intvl(zocket: Pointer; tcp_keepalive_intvl: Longint); cdecl;
-    procedure zsocket_set_tcp_accept_filter(zocket: Pointer; tcp_accept_filter: PAnsiChar); cdecl;
+    procedure zsocket_set_tos(zocket: Pointer; tos: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_router_handover(zocket: Pointer; router_handover: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_router_mandatory(zocket: Pointer; router_mandatory: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_probe_router(zocket: Pointer; probe_router: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_req_relaxed(zocket: Pointer; req_relaxed: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_req_correlate(zocket: Pointer; req_correlate: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_conflate(zocket: Pointer; conflate: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_plain_server(zocket: Pointer; plain_server: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_plain_username(zocket: Pointer; plain_username: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_plain_password(zocket: Pointer; plain_password: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_curve_server(zocket: Pointer; curve_server: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_curve_publickey(zocket: Pointer; curve_publickey: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_curve_publickey_bin(zocket: Pointer; var curve_publickey:byte); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_curve_secretkey(zocket: Pointer; curve_secretkey: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_curve_secretkey_bin(zocket: Pointer; var curve_secretkey:byte); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_curve_serverkey(zocket: Pointer; curve_serverkey: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_curve_serverkey_bin(zocket: Pointer; var curve_serverkey:byte); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_zap_domain(zocket: Pointer; zap_domain: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_ipv6(zocket: Pointer; ipv6: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_immediate(zocket: Pointer; immediate: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_router_raw(zocket: Pointer; router_raw: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_ipv4only(zocket: Pointer; ipv4only: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_delay_attach_on_connect(zocket: Pointer; delay_attach_on_connect: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_sndhwm(zocket: Pointer; sndhwm: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_rcvhwm(zocket: Pointer; rcvhwm: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_affinity(zocket: Pointer; affinity: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_subscribe(zocket: Pointer; subscribe: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_unsubscribe(zocket: Pointer; unsubscribe: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_identity(zocket: Pointer; identity: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_rate(zocket: Pointer; rate: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_recovery_ivl(zocket: Pointer; recovery_ivl: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_sndbuf(zocket: Pointer; sndbuf: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_rcvbuf(zocket: Pointer; rcvbuf: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_linger(zocket: Pointer; linger: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_reconnect_ivl(zocket: Pointer; reconnect_ivl: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_reconnect_ivl_max(zocket: Pointer; reconnect_ivl_max: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_backlog(zocket: Pointer; backlog: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_maxmsgsize(zocket: Pointer; maxmsgsize: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_multicast_hops(zocket: Pointer; multicast_hops: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_rcvtimeo(zocket: Pointer; rcvtimeo: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_sndtimeo(zocket: Pointer; sndtimeo: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_xpub_verbose(zocket: Pointer; xpub_verbose: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_tcp_keepalive(zocket: Pointer; tcp_keepalive: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_tcp_keepalive_idle(zocket: Pointer; tcp_keepalive_idle: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_tcp_keepalive_cnt(zocket: Pointer; tcp_keepalive_cnt: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_tcp_keepalive_intvl(zocket: Pointer; tcp_keepalive_intvl: Longint); cdecl; external CZMQ_LIB;
+    procedure zsocket_set_tcp_accept_filter(zocket: Pointer; tcp_accept_filter: PAnsiChar); cdecl; external CZMQ_LIB;
   {  Emulation of widely-used 2.x socket options }
-    procedure zsocket_set_hwm(zocket: Pointer; hwm: Longint); cdecl;
+    procedure zsocket_set_hwm(zocket: Pointer; hwm: Longint); cdecl; external CZMQ_LIB;
   {  Self test of this class }
-    function zsockopt_test(verbose: Longbool): Longint; cdecl;
+    function zsockopt_test(verbose: Longbool): Longint; cdecl; external CZMQ_LIB;
 
     {$ENDIF ~CZMQ_LINKONREQUEST}
 
@@ -628,26 +634,26 @@ const
 
     {$ELSE ~CZMQ_LINKONREQUEST}
 
-      function zframe_new(const data; size: NativeUInt): pzframe_t; cdecl;
-      function zframe_new_empty: pzframe_t; cdecl;
-      procedure zframe_destroy(var self: pzframe_t); cdecl;
-      function zframe_recv(socket: Pointer): pzframe_t; cdecl;
-      function zframe_recv_nowait(socket: Pointer): pzframe_t; cdecl;
-      function zframe_send(var self: pzframe_t; socket: Pointer; flags: Longint): Longint; cdecl;
-      function zframe_size(self: pzframe_t): NativeUInt; cdecl;
-      function zframe_data(self: pzframe_t): PByte; cdecl;
-      function zframe_dup(self: pzframe_t): pzframe_t; cdecl;
-      function zframe_strhex(self: pzframe_t): PAnsiChar; cdecl;
-      function zframe_strdup(self: pzframe_t): PAnsiChar; cdecl;
-      function zframe_streq(self: pzframe_t; _string: PAnsiChar): Longbool; cdecl;
-      function zframe_more(self: pzframe_t): Longint; cdecl;
-      procedure zframe_set_more(self: pzframe_t; more: Longint); cdecl;
-      function zframe_eq(self: pzframe_t; other: pzframe_t): Longbool; cdecl;
-      procedure zframe_fprint(self: pzframe_t; prefix: PAnsiChar; afile: Pointer); cdecl;
-      procedure zframe_print(self: pzframe_t; prefix: PAnsiChar); cdecl;
-      procedure zframe_reset(self: pzframe_t; const data; size: size_t); cdecl;
-      function zframe_put_block(self: pzframe_t; data: PByteArray; size: size_t): Longint; cdecl;
-      function zframe_test(verbose: Longbool): Longint; cdecl;
+      function zframe_new(const data; size: NativeUInt): pzframe_t; cdecl; external CZMQ_LIB;
+      function zframe_new_empty: pzframe_t; cdecl; external CZMQ_LIB;
+      procedure zframe_destroy(var self: pzframe_t); cdecl; external CZMQ_LIB;
+      function zframe_recv(socket: Pointer): pzframe_t; cdecl; external CZMQ_LIB;
+      function zframe_recv_nowait(socket: Pointer): pzframe_t; cdecl; external CZMQ_LIB;
+      function zframe_send(var self: pzframe_t; socket: Pointer; flags: Longint): Longint; cdecl; external CZMQ_LIB;
+      function zframe_size(self: pzframe_t): NativeUInt; cdecl; external CZMQ_LIB;
+      function zframe_data(self: pzframe_t): PByte; cdecl; external CZMQ_LIB;
+      function zframe_dup(self: pzframe_t): pzframe_t; cdecl; external CZMQ_LIB;
+      function zframe_strhex(self: pzframe_t): PAnsiChar; cdecl; external CZMQ_LIB;
+      function zframe_strdup(self: pzframe_t): PAnsiChar; cdecl; external CZMQ_LIB;
+      function zframe_streq(self: pzframe_t; _string: PAnsiChar): Longbool; cdecl; external CZMQ_LIB;
+      function zframe_more(self: pzframe_t): Longint; cdecl; external CZMQ_LIB;
+      procedure zframe_set_more(self: pzframe_t; more: Longint); cdecl; external CZMQ_LIB;
+      function zframe_eq(self: pzframe_t; other: pzframe_t): Longbool; cdecl; external CZMQ_LIB;
+      procedure zframe_fprint(self: pzframe_t; prefix: PAnsiChar; afile: Pointer); cdecl; external CZMQ_LIB;
+      procedure zframe_print(self: pzframe_t; prefix: PAnsiChar); cdecl; external CZMQ_LIB;
+      procedure zframe_reset(self: pzframe_t; const data; size: size_t); cdecl; external CZMQ_LIB;
+      function zframe_put_block(self: pzframe_t; data: PByteArray; size: size_t): Longint; cdecl; external CZMQ_LIB;
+      function zframe_test(verbose: Longbool): Longint; cdecl; external CZMQ_LIB;
 
     {$ENDIF ~CZMQ_LINKONREQUEST}
 
@@ -723,11 +729,11 @@ const
     
   {  Push formatted string as new frame to front of message. }
   {  Returns 0 on success, -1 on error. }
-    zmsg_pushstrf : function(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; cdecl; varargs;
+    zmsg_pushstrf : function(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; varargs; cdecl;
     
   {  Push formatted string as new frame to end of message. }
   {  Returns 0 on success, -1 on error. }
-    zmsg_addstrf : function(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; cdecl; varargs;
+    zmsg_addstrf : function(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; varargs; cdecl;
     
   {  Pop frame off front of message, return as fresh string. If there were }
   {  no more frames in the message, returns NULL. }
@@ -790,36 +796,36 @@ const
     
   {$ELSE ~CZMQ_LINKONREQUEST}
 
-    function: zmsg_new: pzmsg_t; cdecl;
-    procedure zmsg_destroy(var self: pzmsg_t); cdecl;
-    function zmsg_recv(socket: Pointer): pzmsg_t; cdecl;
-    function zmsg_recv_nowait(socket: Pointer): pzmsg_t; cdecl;
-    function zmsg_send(var self: pzmsg_t; socket: Pointer): Longint; cdecl;
-    function zmsg_size(self: pzmsg_t): NativeUInt; cdecl;
-    function zmsg_content_size(self: pzmsg_t): NativeUInt; cdecl;
-    function zmsg_prepend(self: pzmsg_t; var frame_p: pzframe_t): Longint; cdecl;
-    function zmsg_append(self: pzmsg_t; var frame_p: pzframe_t): Longint; cdecl;
-    function zmsg_pop(self: pzmsg_t): pzframe_t; cdecl;
-    function zmsg_pushmem(self: pzmsg_t; const src; size: NativeUInt): Longint; cdecl;
-    function zmsg_addmem(self: pzmsg_t; const src; size: NativeUInt): Longint; cdecl;
-    function zmsg_pushstr(self: pzmsg_t; astring: PAnsiChar): Longint; cdecl;
-    function zmsg_addstr(self: pzmsg_t; astring: PAnsiChar): Longint; cdecl;
-    function zmsg_pushstrf(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; cdecl; varargs;
-    function zmsg_addstrf(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; cdecl; varargs;
-    function zmsg_popstr(self: pzmsg_t): PAnsiChar; cdecl;
-    function zmsg_unwrap(self: pzmsg_t): pzframe_t; cdecl;
-    procedure zmsg_remove(self: pzmsg_t; var frame:zframe_t); cdecl;
-    function zmsg_first(self: pzmsg_t): pzframe_t; cdecl;
-    function zmsg_next(self: pzmsg_t): pzframe_t; cdecl;
-    function zmsg_last(self: pzmsg_t): pzframe_t; cdecl;
-    function zmsg_save(self: pzmsg_t; afile: Pointer): Longint; cdecl;
-    function zmsg_load(self: pzmsg_t; afile: Pointer): pzmsg_t; cdecl;
-    function zmsg_encode(self: pzmsg_t; var buffer:Pbyte): NativeUInt; cdecl;
-    function zmsg_decode(var buffer; buffer_size: NativeUInt): pzmsg_t; cdecl;
-    function zmsg_dup(self: pzmsg_t): pzmsg_t; cdecl;
-    procedure zmsg_fprint(self: pzmsg_t; afile: Pointer); cdecl;
-    procedure zmsg_print(self: pzmsg_t); cdecl;
-    function zmsg_test(verbose: Longbool): Longint; cdecl;
+    function zmsg_new: pzmsg_t; cdecl; external CZMQ_LIB;
+    procedure zmsg_destroy(var self: pzmsg_t); cdecl; external CZMQ_LIB;
+    function zmsg_recv(socket: Pointer): pzmsg_t; cdecl; external CZMQ_LIB;
+    function zmsg_recv_nowait(socket: Pointer): pzmsg_t; cdecl; external CZMQ_LIB;
+    function zmsg_send(var self: pzmsg_t; socket: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zmsg_size(self: pzmsg_t): NativeUInt; cdecl; external CZMQ_LIB;
+    function zmsg_content_size(self: pzmsg_t): NativeUInt; cdecl; external CZMQ_LIB;
+    function zmsg_prepend(self: pzmsg_t; var frame_p: pzframe_t): Longint; cdecl; external CZMQ_LIB;
+    function zmsg_append(self: pzmsg_t; var frame_p: pzframe_t): Longint; cdecl; external CZMQ_LIB;
+    function zmsg_pop(self: pzmsg_t): pzframe_t; cdecl; external CZMQ_LIB;
+    function zmsg_pushmem(self: pzmsg_t; const src; size: NativeUInt): Longint; cdecl; external CZMQ_LIB;
+    function zmsg_addmem(self: pzmsg_t; const src; size: NativeUInt): Longint; cdecl; external CZMQ_LIB;
+    function zmsg_pushstr(self: pzmsg_t; astring: PAnsiChar): Longint; cdecl; external CZMQ_LIB;
+    function zmsg_addstr(self: pzmsg_t; astring: PAnsiChar): Longint; cdecl; external CZMQ_LIB;
+    function zmsg_pushstrf(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; varargs; cdecl; external CZMQ_LIB;
+    function zmsg_addstrf(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; varargs; cdecl; external CZMQ_LIB;
+    function zmsg_popstr(self: pzmsg_t): PAnsiChar; cdecl; external CZMQ_LIB;
+    function zmsg_unwrap(self: pzmsg_t): pzframe_t; cdecl; external CZMQ_LIB;
+    procedure zmsg_remove(self: pzmsg_t; var frame:zframe_t); cdecl; external CZMQ_LIB;
+    function zmsg_first(self: pzmsg_t): pzframe_t; cdecl; external CZMQ_LIB;
+    function zmsg_next(self: pzmsg_t): pzframe_t; cdecl; external CZMQ_LIB;
+    function zmsg_last(self: pzmsg_t): pzframe_t; cdecl; external CZMQ_LIB;
+    function zmsg_save(self: pzmsg_t; afile: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zmsg_load(self: pzmsg_t; afile: Pointer): pzmsg_t; cdecl; external CZMQ_LIB;
+    function zmsg_encode(self: pzmsg_t; var buffer:Pbyte): NativeUInt; cdecl; external CZMQ_LIB;
+    function zmsg_decode(var buffer; buffer_size: NativeUInt): pzmsg_t; cdecl; external CZMQ_LIB;
+    function zmsg_dup(self: pzmsg_t): pzmsg_t; cdecl; external CZMQ_LIB;
+    procedure zmsg_fprint(self: pzmsg_t; afile: Pointer); cdecl; external CZMQ_LIB;
+    procedure zmsg_print(self: pzmsg_t); cdecl; external CZMQ_LIB;
+    function zmsg_test(verbose: Longbool): Longint; cdecl; external CZMQ_LIB;
 
   {$ENDIF ~CZMQ_LINKONREQUEST}
 
@@ -884,16 +890,16 @@ const
 
   {$ELSE ~CZMQ_LINKONREQUEST}
 
-    function: zloop_new: pzloop_t; cdecl;
-    procedure zloop_destroy(var self: pzloop_t); cdecl;
-    function zloop_poller(self: pzloop_t; poolitem: Pointer; handler: zloop_fn; arg: Pointer): Longint; cdecl;
-    procedure zloop_poller_end(self: pzloop_t; poolitem: Pointer); cdecl;
-    procedure zloop_set_tolerant(self: pzloop_t; poolitem: Pointer); cdecl;
-    function zloop_timer(self: pzloop_t; delay: NativeUInt; times: NativeUInt; handler: zloop_timer_fn; arg: Pointer): Longint; cdecl;
-    function zloop_timer_end(self: pzloop_t; timer_id: Longint): Longint; cdecl;
-    procedure zloop_set_verbose(self: pzloop_t; verbose: Longbool); cdecl;
-    function zloop_start(self: pzloop_t): Longint; cdecl;
-    procedure zloop_test(verbose: Longbool); cdecl;
+    function zloop_new: pzloop_t; cdecl; external CZMQ_LIB;
+    procedure zloop_destroy(var self: pzloop_t); cdecl; external CZMQ_LIB;
+    function zloop_poller(self: pzloop_t; poolitem: Pointer; handler: zloop_fn; arg: Pointer): Longint; cdecl; external CZMQ_LIB;
+    procedure zloop_poller_end(self: pzloop_t; poolitem: Pointer); cdecl; external CZMQ_LIB;
+    procedure zloop_set_tolerant(self: pzloop_t; poolitem: Pointer); cdecl; external CZMQ_LIB;
+    function zloop_timer(self: pzloop_t; delay: NativeUInt; times: NativeUInt; handler: zloop_timer_fn; arg: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zloop_timer_end(self: pzloop_t; timer_id: Longint): Longint; cdecl; external CZMQ_LIB;
+    procedure zloop_set_verbose(self: pzloop_t; verbose: Longbool); cdecl; external CZMQ_LIB;
+    function zloop_start(self: pzloop_t): Longint; cdecl; external CZMQ_LIB;
+    procedure zloop_test(verbose: Longbool); cdecl; external CZMQ_LIB;
 
   {$ENDIF ~CZMQ_LINKONREQUEST}
 
@@ -955,14 +961,14 @@ const
 
   {$ELSE ~CZMQ_LINKONREQUEST}
 
-    function zauth_new(ctx: pzctx_t): pzauth_t; cdecl;
-    procedure zauth_allow(self: pzauth_t; address: PAnsiChar); cdecl;
-    procedure zauth_deny(self: pzauth_t; address: PAnsiChar); cdecl;
-    procedure zauth_configure_plain(self: pzauth_t; domain: PAnsiChar; filename: PAnsiChar); cdecl;
-    procedure zauth_configure_curve(self: pzauth_t; domain: PAnsiChar; location: PAnsiChar); cdecl;
-    procedure zauth_set_verbose(self: pzauth_t; verbose: Longbool); cdecl;
-    procedure zauth_destroy(var self: pzauth_t); cdecl;
-    function zauth_test(verbose: Longbool): Longint; cdecl;
+    function zauth_new(ctx: pzctx_t): pzauth_t; cdecl; external CZMQ_LIB;
+    procedure zauth_allow(self: pzauth_t; address: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zauth_deny(self: pzauth_t; address: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zauth_configure_plain(self: pzauth_t; domain: PAnsiChar; filename: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zauth_configure_curve(self: pzauth_t; domain: PAnsiChar; location: PAnsiChar); cdecl; external CZMQ_LIB;
+    procedure zauth_set_verbose(self: pzauth_t; verbose: Longbool); cdecl; external CZMQ_LIB;
+    procedure zauth_destroy(var self: pzauth_t); cdecl; external CZMQ_LIB;
+    function zauth_test(verbose: Longbool): Longint; cdecl; external CZMQ_LIB;
 
   {$ENDIF ~CZMQ_LINKONREQUEST}
 
@@ -976,7 +982,7 @@ const
   {$IFDEF CZMQ_LINKONREQUEST}
   var
   {  Create new poller }
-    zpoller_new : function(var reader: Pointer{, ...}): pzpoller_t; cdecl; varargs;
+    zpoller_new : function(var reader: Pointer{, ...}): pzpoller_t; varargs; cdecl;
     
   {  Destroy a poller }
     zpoller_destroy : procedure(var self: pzpoller_t); cdecl;
@@ -1005,13 +1011,13 @@ const
     zpoller_test : function(verbose: Longbool): Longint; cdecl;
 
   {$ELSE ~CZMQ_LINKONREQUEST}
-    zpoller_new : function(var reader: Pointer{, ...}): pzpoller_t; cdecl; varargs;
-    zpoller_destroy : procedure(var self: pzpoller_t); cdecl;
-    zpoller_add : function(self: pzpoller_t; reader: Pointer): Longint; cdecl;
-    zpoller_wait : function(self: pzpoller_t; timeout: Longint): Pointer; cdecl;
-    zpoller_expired : function(self: pzpoller_t): Longbool; cdecl;
-    zpoller_terminated : function(self: pzpoller_t): Longbool; cdecl;
-    zpoller_test : function(verbose: Longbool): Longint; cdecl;
+    function zpoller_new(var reader: Pointer{, ...}): pzpoller_t; varargs; cdecl; external CZMQ_LIB;
+    procedure zpoller_destroy(var self: pzpoller_t); cdecl; external CZMQ_LIB;
+    function zpoller_add(self: pzpoller_t; reader: Pointer): Longint; cdecl; external CZMQ_LIB;
+    function zpoller_wait(self: pzpoller_t; timeout: Longint): Pointer; cdecl; external CZMQ_LIB;
+    function zpoller_expired(self: pzpoller_t): Longbool; cdecl; external CZMQ_LIB;
+    function zpoller_terminated(self: pzpoller_t): Longbool; cdecl; external CZMQ_LIB;
+    function zpoller_test(verbose: Longbool): Longint; cdecl; external CZMQ_LIB;
   {$ENDIF ~CZMQ_LINKONREQUEST}
 
   {** zmonitor **}
@@ -1044,12 +1050,12 @@ const
 
   {$ELSE ~CZMQ_LINKONREQUEST}
 
-    function zmonitor_new(ctx: pzctx_t; socket: Pointer; events: Longint): pzmonitor_t; cdecl;
-    procedure zmonitor_destroy(var self: pzmonitor_t); cdecl;
-    function zmonitor_recv(self: pzmonitor_t): pzmsg_t; cdecl;
-    function zmonitor_socket(self: pzmonitor_t): Pointer; cdecl;
-    procedure zmonitor_set_verbose(self: pzmonitor_t; verbose: Longbool); cdecl;
-    procedure zmonitor_test(verbose: Longbool); cdecl;
+    function zmonitor_new(ctx: pzctx_t; socket: Pointer; events: Longint): pzmonitor_t; cdecl; external CZMQ_LIB;
+    procedure zmonitor_destroy(var self: pzmonitor_t); cdecl; external CZMQ_LIB;
+    function zmonitor_recv(self: pzmonitor_t): pzmsg_t; cdecl; external CZMQ_LIB;
+    function zmonitor_socket(self: pzmonitor_t): Pointer; cdecl; external CZMQ_LIB;
+    procedure zmonitor_set_verbose(self: pzmonitor_t; verbose: Longbool); cdecl; external CZMQ_LIB;
+    procedure zmonitor_test(verbose: Longbool); cdecl; external CZMQ_LIB;
 
   {$ENDIF ~CZMQ_LINKONREQUEST}
 
@@ -1095,17 +1101,17 @@ const
     zbeacon_test : procedure(verbose: Longbool); cdecl;
 
   {$ELSE ~CZMQ_LINKONREQUEST}
-    function zbeacon_new(ctx: pzctx_t; port_nbr: Longint): pzbeacon_t; cdecl;
-    procedure zbeacon_destroy(self: pzbeacon_t); cdecl;
-    function zbeacon_hostname(self: pzbeacon_t): PAnsiChar; cdecl;
-    procedure zbeacon_set_interval(self: pzbeacon_t; interval: Longint); cdecl;
-    procedure zbeacon_noecho(self: pzbeacon_t); cdecl;
-    procedure zbeacon_publish(self: pzbeacon_t; transmit: PByteArray; size: NativeUInt); cdecl;
-    procedure zbeacon_silence(self: pzbeacon_t); cdecl;
-    procedure zbeacon_subscribe(self: pzbeacon_t; var filter:byte; size: NativeUInt); cdecl;
-    procedure zbeacon_unsubscribe(self: pzbeacon_t); cdecl;
-    function zbeacon_socket(self: pzbeacon_t): Pointer; cdecl;
-    procedure zbeacon_test(verbose: Longbool); cdecl;
+    function zbeacon_new(ctx: pzctx_t; port_nbr: Longint): pzbeacon_t; cdecl; external CZMQ_LIB;
+    procedure zbeacon_destroy(self: pzbeacon_t); cdecl; external CZMQ_LIB;
+    function zbeacon_hostname(self: pzbeacon_t): PAnsiChar; cdecl; external CZMQ_LIB;
+    procedure zbeacon_set_interval(self: pzbeacon_t; interval: Longint); cdecl; external CZMQ_LIB;
+    procedure zbeacon_noecho(self: pzbeacon_t); cdecl; external CZMQ_LIB;
+    procedure zbeacon_publish(self: pzbeacon_t; transmit: PByteArray; size: NativeUInt); cdecl; external CZMQ_LIB;
+    procedure zbeacon_silence(self: pzbeacon_t); cdecl; external CZMQ_LIB;
+    procedure zbeacon_subscribe(self: pzbeacon_t; var filter:byte; size: NativeUInt); cdecl; external CZMQ_LIB;
+    procedure zbeacon_unsubscribe(self: pzbeacon_t); cdecl; external CZMQ_LIB;
+    function zbeacon_socket(self: pzbeacon_t): Pointer; cdecl; external CZMQ_LIB;
+    procedure zbeacon_test(verbose: Longbool); cdecl; external CZMQ_LIB;
   {$ENDIF ~CZMQ_LINKONREQUEST}
 
   {** zuuid **}
@@ -1154,30 +1160,35 @@ const
     zuuid_test : function(verbose: Longbool): Longint; cdecl;
 
   {$ELSE ~CZMQ_LINKONREQUEST}
-    function: zuuid_new: pzuuid_t; cdecl;
-    procedure zuuid_destroy(var self:pzuuid_t); cdecl;
-    function zuuid_data(self: pzuuid_t): PByteArray; cdecl;
-    function zuuid_size(self: pzuuid_t): NativeUInt; cdecl;
-    function zuuid_str(self: pzuuid_t): PAnsiChar; cdecl;
-    procedure zuuid_set(self: pzuuid_t; source: PByteArray); cdecl;
-    procedure zuuid_export(self: pzuuid_t; target: PByteArray); cdecl;
-    function zuuid_eq(self: pzuuid_t; compare: PByteArray): Longbool; cdecl;
-    function zuuid_neq(self: pzuuid_t; compare: PByteArray): Longbool; cdecl;
-    function zuuid_dup(self: pzuuid_t): pzuuid_t; cdecl;
-    function zuuid_test(verbose: Longbool): Longint; cdecl;
+    function zuuid_new: pzuuid_t; cdecl; external CZMQ_LIB;
+    procedure zuuid_destroy(var self:pzuuid_t); cdecl; external CZMQ_LIB;
+    function zuuid_data(self: pzuuid_t): PByteArray; cdecl; external CZMQ_LIB;
+    function zuuid_size(self: pzuuid_t): NativeUInt; cdecl; external CZMQ_LIB;
+    function zuuid_str(self: pzuuid_t): PAnsiChar; cdecl; external CZMQ_LIB;
+    procedure zuuid_set(self: pzuuid_t; source: PByteArray); cdecl; external CZMQ_LIB;
+    procedure zuuid_export(self: pzuuid_t; target: PByteArray); cdecl; external CZMQ_LIB;
+    function zuuid_eq(self: pzuuid_t; compare: PByteArray): Longbool; cdecl; external CZMQ_LIB;
+    function zuuid_neq(self: pzuuid_t; compare: PByteArray): Longbool; cdecl; external CZMQ_LIB;
+    function zuuid_dup(self: pzuuid_t): pzuuid_t; cdecl; external CZMQ_LIB;
+    function zuuid_test(verbose: Longbool): Longint; cdecl; external CZMQ_LIB;
   {$ENDIF ~CZMQ_LINKONREQUEST}
 
+{$IFDEF CZMQ_LINKONREQUEST}
   procedure LoadLib(lib : PAnsiChar);
   procedure FreeLib;
+{$ENDIF}
 
 implementation
 
 {$IFDEF FPC}
+{$IFDEF CZMQ_LINKONREQUEST}
   uses dynlibs;
-{$ELSE}
+{$ENDIF CZMQ_LINKONREQUEST}
+{$ELSE ~FPC}
   uses Windows;
-{$ENDIF}
+{$ENDIF ~FPC}
 
+{$IFDEF CZMQ_LINKONREQUEST}
   var
     _hlib : TLibHandle;
 
@@ -1661,6 +1672,7 @@ implementation
       Pointer(zuuid_test) := GetProcAddress(_hlib, 'zuuid_test');
     end;
 
+  {$ENDIF CZMQ_LINKONREQUEST}
 
 
 end.
