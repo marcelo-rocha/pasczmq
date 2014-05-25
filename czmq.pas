@@ -1,7 +1,7 @@
 {  =========================================================================
     czmq.pas - CZMQ API Pascal Binding
 
-    Copyright (c) 2014 Marcelo Campos Rocha
+    Copyright (c) 2014 Marcelo Campos Rocha - http://www.marcelorocha.net
 
     This file is a derived work from headers of czmq library
     http://czmq.zeromq.org.
@@ -30,19 +30,17 @@ unit czmq;
 
 interface
 
-  uses SysUtils;
+uses SysUtils;
 
-  { Pointers to basic pascal types, inserted by h2pas conversion program.}
-  Type
-{$IFNDEF DELPHI2009_UP}
-//    NativeUInt = Cardinal; 
-{$ENDIF}
-    size_t = NativeUInt;
+type
+  size_t = NativeUInt;
 
 const
 {$IFDEF FPC}
+  ZMQ_LIB = 'libzmq.so';
   CZMQ_LIB = 'libczmq.so';
 {$ELSE ~FPC}
+  ZMQ_LIB = 'zmq.dll';
   CZMQ_LIB = 'czmq.dll';
 {$ENDIF ~FPC}
 
@@ -53,7 +51,7 @@ const
 //  different OSes. The assumption is that error_t is at least 32-bit type.  
     ZMQ_HAUSNUMERO = 156384712;
   
-  (*  On Windows platform some of the standard POSIX errnos are not defined.    *)
+  {  On Windows platform some of the standard POSIX errnos are not defined.    }
     ENOTSUP         = (ZMQ_HAUSNUMERO + 1);
     EPROTONOSUPPORT = (ZMQ_HAUSNUMERO + 2);
     ENOBUFS         = (ZMQ_HAUSNUMERO + 3);
@@ -73,11 +71,36 @@ const
     EHOSTUNREACH    = (ZMQ_HAUSNUMERO + 17);
     ENETRESET       = (ZMQ_HAUSNUMERO + 18);
   
-  (*  Native 0MQ error codes.                                                   *)
+  {  Native 0MQ error codes.                                                   }
     EFSM           = (ZMQ_HAUSNUMERO + 51);
     ENOCOMPATPROTO = (ZMQ_HAUSNUMERO + 52);
     ETERM          = (ZMQ_HAUSNUMERO + 53);
     EMTHREAD       = (ZMQ_HAUSNUMERO + 54);    
+
+   {  Socket types   }
+    ZMQ_PAIR = 0;
+    ZMQ_PUB = 1;
+    ZMQ_SUB = 2;
+    ZMQ_REQ = 3;
+    ZMQ_REP = 4;
+    ZMQ_DEALER = 5;
+    ZMQ_ROUTER = 6;
+    ZMQ_PULL = 7;
+    ZMQ_PUSH = 8;
+    ZMQ_XPUB = 9;
+    ZMQ_XSUB = 10;
+    ZMQ_STREAM = 11;
+
+  {** zmq **}
+
+{$IFDEF CZMQ_LINKONREQUEST}
+
+{$ELSE}
+  function zmq_send (socket: Pointer; const buf; len: size_t; flags: Integer): Integer; cdecl; external ZMQ_LIB;
+  function zmq_send_const (void *s, const void *buf, size_t len, int flags): Integer; cdecl; external ZMQ_LIB;
+  function zmq_recv (void *s, void *buf, size_t len, int flags): Integer; cdecl; external ZMQ_LIB;
+{$ENDIF}
+
 
 
   {** zctx **}
@@ -257,7 +280,7 @@ const
     
   {  Send data over a socket as a single message frame. }
   {  Accepts these flags: ZFRAME_MORE and ZFRAME_DONTWAIT. }
-    function zsocket_sendmem(socket: Pointer; const data; size: size_t; flags: Longint): Longint; cdecl; external CZMQ_LIB;
+    function zsocket_sendmem(socket: Pointer; const data; size: size_t; flags: Longint = 0): Longint; cdecl; external CZMQ_LIB;
     
   {  Send a signal over a socket. A signal is a zero-byte message. }
   {  Signals are used primarily between threads, over pipe sockets. }
