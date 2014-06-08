@@ -8,16 +8,16 @@
     Copyright (c) 1991-2014 iMatix Corporation <www.imatix.com>
 
     This is free software; you can redistribute it and/or modify it under
-    the terms of the GNU Lesser General Public License as published by the 
-    Free Software Foundation; either version 3 of the License, or (at your 
+    the terms of the GNU Lesser General Public License as published by the
+    Free Software Foundation; either version 3 of the License, or (at your
     option) any later version.
 
     This software is distributed in the hope that it will be useful, but
     WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABIL-
-    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General 
+    ITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General
     Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License 
+    You should have received a copy of the GNU Lesser General Public License
     along with this program. If not, see <http://www.gnu.org/licenses/>.
     =========================================================================
 }
@@ -30,77 +30,17 @@ unit czmq;
 
 interface
 
-uses SysUtils;
+uses SysUtils, zmq;
 
 type
   size_t = NativeUInt;
 
 const
-{$IFDEF FPC}
-  ZMQ_LIB = 'libzmq.so';
-  CZMQ_LIB = 'libczmq.so';
-{$ELSE ~FPC}
-  ZMQ_LIB = 'zmq.dll';
-  CZMQ_LIB = 'czmq.dll';
-{$ENDIF ~FPC}
-
-  {** 0MQ errors **}
-
-const
-//  A number random enough not to collide with different errno ranges on     
-//  different OSes. The assumption is that error_t is at least 32-bit type.  
-    ZMQ_HAUSNUMERO = 156384712;
-  
-  {  On Windows platform some of the standard POSIX errnos are not defined.    }
-    ENOTSUP         = (ZMQ_HAUSNUMERO + 1);
-    EPROTONOSUPPORT = (ZMQ_HAUSNUMERO + 2);
-    ENOBUFS         = (ZMQ_HAUSNUMERO + 3);
-    ENETDOWN        = (ZMQ_HAUSNUMERO + 4);
-    EADDRINUSE      = (ZMQ_HAUSNUMERO + 5);
-    EADDRNOTAVAIL   = (ZMQ_HAUSNUMERO + 6);
-    ECONNREFUSED    = (ZMQ_HAUSNUMERO + 7);
-    EINPROGRESS     = (ZMQ_HAUSNUMERO + 8);
-    ENOTSOCK        = (ZMQ_HAUSNUMERO + 9);
-    EMSGSIZE        = (ZMQ_HAUSNUMERO + 10);
-    EAFNOSUPPORT    = (ZMQ_HAUSNUMERO + 11);
-    ENETUNREACH     = (ZMQ_HAUSNUMERO + 12);
-    ECONNABORTED    = (ZMQ_HAUSNUMERO + 13);
-    ECONNRESET      = (ZMQ_HAUSNUMERO + 14);
-    ENOTCONN        = (ZMQ_HAUSNUMERO + 15);
-    ETIMEDOUT       = (ZMQ_HAUSNUMERO + 16);
-    EHOSTUNREACH    = (ZMQ_HAUSNUMERO + 17);
-    ENETRESET       = (ZMQ_HAUSNUMERO + 18);
-  
-  {  Native 0MQ error codes.                                                   }
-    EFSM           = (ZMQ_HAUSNUMERO + 51);
-    ENOCOMPATPROTO = (ZMQ_HAUSNUMERO + 52);
-    ETERM          = (ZMQ_HAUSNUMERO + 53);
-    EMTHREAD       = (ZMQ_HAUSNUMERO + 54);    
-
-   {  Socket types   }
-    ZMQ_PAIR = 0;
-    ZMQ_PUB = 1;
-    ZMQ_SUB = 2;
-    ZMQ_REQ = 3;
-    ZMQ_REP = 4;
-    ZMQ_DEALER = 5;
-    ZMQ_ROUTER = 6;
-    ZMQ_PULL = 7;
-    ZMQ_PUSH = 8;
-    ZMQ_XPUB = 9;
-    ZMQ_XSUB = 10;
-    ZMQ_STREAM = 11;
-
-  {** zmq **}
-
-{$IFDEF CZMQ_LINKONREQUEST}
-
-{$ELSE}
-  function zmq_send (socket: Pointer; const buf; len: size_t; flags: Integer): Integer; cdecl; external ZMQ_LIB;
-  function zmq_send_const (void *s, const void *buf, size_t len, int flags): Integer; cdecl; external ZMQ_LIB;
-  function zmq_recv (void *s, void *buf, size_t len, int flags): Integer; cdecl; external ZMQ_LIB;
-{$ENDIF}
-
+{$IFDEF WINDOWS}
+        CZMQ_LIB = 'czmq.dll';
+{$ELSE ~WINDOWS}
+       CZMQ_LIB = 'libczmq.so';
+{$ENDIF ~WINDOWS}
 
 
   {** zctx **}
@@ -178,19 +118,19 @@ const
   {  You can set this per-socket after the socket is created. }
   {  The default, no matter the underlying ZeroMQ version, is 1,000. }
     procedure zctx_set_sndhwm(self: pzctx_t; sndhwm: Longint); cdecl; external CZMQ_LIB;
-    
+
   {  Set initial receive HWM for all new normal sockets created in context. }
   {  You can set this per-socket after the socket is created. }
   {  The default, no matter the underlying ZeroMQ version, is 1,000. }
     procedure zctx_set_rcvhwm(self: pzctx_t; rcvhwm: Longint); cdecl; external CZMQ_LIB;
-    
+
   {  Return low-level 0MQ context object, will be NULL before first socket }
   {  is created. Use with care. }
     function zctx_underlying(self: pzctx_t): Pointer; cdecl; external CZMQ_LIB;
-    
+
   {  Self test of this class }
     function zctx_test(verbose: Longbool): Longint; cdecl; external CZMQ_LIB;
-    
+
   var
   {  Global signal indicator, TRUE when user presses Ctrl-C or the process }
   {  gets a SIGTERM signal. }
@@ -202,8 +142,8 @@ const
   {  This port range is defined by IANA for dynamic or private ports }
   {  We use this when choosing a port for dynamic binding. }
   const
-    ZSOCKET_DYNFROM = $c000;    
-    ZSOCKET_DYNTO = $ffff;   
+    ZSOCKET_DYNFROM = $c000;
+    ZSOCKET_DYNTO = $ffff;
 
   type
     //  Callback function for zero-copy methods
@@ -246,10 +186,10 @@ const
   {  Note: SUB sockets do not automatically subscribe to everything; you }
   {  must set filters explicitly. }
     function zsocket_new(self: pzctx_t; atype: Longint): Pointer; cdecl; external CZMQ_LIB;
-    
+
   {  Destroy a socket within our CZMQ context, replaces zmq_close. }
     procedure zsocket_destroy(self: pzctx_t; socket: Pointer); cdecl; external CZMQ_LIB;
-    
+
   {  Bind a socket to a formatted endpoint. If the port is specified as }
   {  '*', binds to any free port from ZSOCKET_DYNFROM to ZSOCKET_DYNTO }
   {  and returns the actual port number used. Otherwise asserts that the }
@@ -261,36 +201,36 @@ const
   {  Returns 0 if OK, -1 if the endpoint was invalid or the function }
   {  isn't supported. }
     function zsocket_unbind(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl; external CZMQ_LIB;
-    
+
   {  Connect a socket to a formatted endpoint }
   {  Returns 0 if OK, -1 if the endpoint was invalid. }
     function zsocket_connect(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl; external CZMQ_LIB;
-    
+
   {  Disonnect a socket from a formatted endpoint }
   {  Returns 0 if OK, -1 if the endpoint was invalid or the function }
   {  isn't supported. }
     function zsocket_disconnect(socket: Pointer; format: PAnsiChar): Longint; varargs; cdecl; external CZMQ_LIB;
-    
+
   {  Poll for input events on the socket. Returns TRUE if there is input }
   {  ready on the socket, else FALSE. }
     function zsocket_poll(socket: Pointer; msecs: Longint): Longbool; varargs; cdecl; external CZMQ_LIB;
-    
+
   {  Returns socket type as printable constant string }
     function zsocket_type_str(socket: Pointer): PAnsiChar; cdecl; external CZMQ_LIB;
-    
+
   {  Send data over a socket as a single message frame. }
   {  Accepts these flags: ZFRAME_MORE and ZFRAME_DONTWAIT. }
     function zsocket_sendmem(socket: Pointer; const data; size: size_t; flags: Longint = 0): Longint; cdecl; external CZMQ_LIB;
-    
+
   {  Send a signal over a socket. A signal is a zero-byte message. }
   {  Signals are used primarily between threads, over pipe sockets. }
   {  Returns -1 if there was an error sending the signal. }
     function zsocket_signal(socket: Pointer): Longint; cdecl; external CZMQ_LIB;
-    
+
   {  Wait on a signal. Use this to coordinate between threads, over }
   {  pipe pairs. Returns -1 on error, 0 on success. }
     function zsocket_wait(socket: Pointer): Longint; cdecl; external CZMQ_LIB;
-    
+
   {  Self test of this class }
     function zsocket_test(verbose: Longbool): Longint; cdecl; external CZMQ_LIB;
 
@@ -694,129 +634,129 @@ const
   var
   {  Create a new empty message object }
     zmsg_new : function: pzmsg_t; cdecl;
-    
+
   {  Destroy a message object and all frames it contains }
     zmsg_destroy : procedure(var self: pzmsg_t); cdecl;
-    
+
   {  Receive message from socket, returns zmsg_t object or NULL if the recv }
   {  was interrupted. Does a blocking recv, if you want to not block then use }
   {  the zloop class or zmsg_recv_nowait() or zmq_poll to check for socket input before receiving. }
     zmsg_recv : function(socket: Pointer): pzmsg_t; cdecl;
-    
+
   {  Receive message from socket, returns zmsg_t object, or NULL either if there was }
   {  no input waiting, or the recv was interrupted. }
     zmsg_recv_nowait : function(socket: Pointer): pzmsg_t; cdecl;
-    
+
   {  Send message to socket, destroy after sending. If the message has no }
   {  frames, sends nothing but destroys the message anyhow. Safe to call }
   {  if zmsg is null. }
     zmsg_send : function(var self: pzmsg_t; socket: Pointer): Longint; cdecl;
-    
+
   {  Return size of message, i.e. number of frames (0 or more). }
     zmsg_size : function(self: pzmsg_t): NativeUInt; cdecl;
-    
+
   {  Return total size of all frames in message. }
     zmsg_content_size : function(self: pzmsg_t): NativeUInt; cdecl;
-    
+
   {  Push frame to the front of the message, i.e. before all other frames. }
   {  Message takes ownership of frame, will destroy it when message is sent. }
   {  Returns 0 on success, -1 on error. Deprecates zmsg_push, which did not }
   {  nullify the caller's frame reference. }
     zmsg_prepend : function(self: pzmsg_t; var frame_p: pzframe_t): Longint; cdecl;
-    
+
   {  Add frame to the end of the message, i.e. after all other frames. }
   {  Message takes ownership of frame, will destroy it when message is sent. }
   {  Returns 0 on success. Deprecates zmsg_add, which did not nullify the }
   {  caller's frame reference. }
     zmsg_append : function(self: pzmsg_t; var frame_p: pzframe_t): Longint; cdecl;
-    
+
   {  Remove first frame from message, if any. Returns frame, or NULL. Caller }
   {  now owns frame and must destroy it when finished with it. }
     zmsg_pop : function(self: pzmsg_t): pzframe_t; cdecl;
-    
+
   {  Push block of memory to front of message, as a new frame. }
   {  Returns 0 on success, -1 on error. }
     zmsg_pushmem : function(self: pzmsg_t; const src; size: NativeUInt): Longint; cdecl;
-    
+
   {  Add block of memory to the end of the message, as a new frame. }
   {  Returns 0 on success, -1 on error. }
     zmsg_addmem : function(self: pzmsg_t; const src; size: NativeUInt): Longint; cdecl;
-    
+
   {  Push string as new frame to front of message. }
   {  Returns 0 on success, -1 on error. }
     zmsg_pushstr : function(self: pzmsg_t; astring: PAnsiChar): Longint; cdecl;
-    
+
   {  Push string as new frame to end of message. }
   {  Returns 0 on success, -1 on error. }
     zmsg_addstr : function(self: pzmsg_t; astring: PAnsiChar): Longint; cdecl;
-    
+
   {  Push formatted string as new frame to front of message. }
   {  Returns 0 on success, -1 on error. }
     zmsg_pushstrf : function(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; varargs; cdecl;
-    
+
   {  Push formatted string as new frame to end of message. }
   {  Returns 0 on success, -1 on error. }
     zmsg_addstrf : function(self: pzmsg_t; format: PAnsiChar{, ...}): Longint; varargs; cdecl;
-    
+
   {  Pop frame off front of message, return as fresh string. If there were }
   {  no more frames in the message, returns NULL. }
     zmsg_popstr : function(self: pzmsg_t): PAnsiChar; cdecl;
-    
+
   {  Pop frame off front of message, caller now owns frame }
   {  If next frame is empty, pops and destroys that empty frame. }
     zmsg_unwrap : function(self: pzmsg_t): pzframe_t; cdecl;
-    
+
   {  Remove specified frame from list, if present. Does not destroy frame. }
     zmsg_remove : procedure(self: pzmsg_t; var frame:zframe_t); cdecl;
-    
+
   {  Set cursor to first frame in message. Returns frame, or NULL, if the  }
   {  message is empty. Use this to navigate the frames as a list. }
     zmsg_first : function(self: pzmsg_t): pzframe_t; cdecl;
-    
+
   {  Return the next frame. If there are no more frames, returns NULL. To move }
   {  to the first frame call zmsg_first(). Advances the cursor. }
     zmsg_next : function(self: pzmsg_t): pzframe_t; cdecl;
-    
+
   {  Return the last frame. If there are no frames, returns NULL. }
     zmsg_last : function(self: pzmsg_t): pzframe_t; cdecl;
-    
+
   {  Save message to an open file, return 0 if OK, else -1. The message is  }
   {  saved as a series of frames, each with length and data. Note that the }
   {  file is NOT guaranteed to be portable between operating systems, not }
   {  versions of CZMQ. The file format is at present undocumented and liable }
   {  to arbitrary change. }
     zmsg_save : function(self: pzmsg_t; afile: Pointer): Longint; cdecl;
-    
+
   {  Load/append an open file into message, create new message if }
   {  null message provided. Returns NULL if the message could not  }
   {  be loaded. }
     zmsg_load : function(self: pzmsg_t; afile: Pointer): pzmsg_t; cdecl;
-    
+
   {  Serialize multipart message to a single buffer. Use this method to send }
   {  structured messages across transports that do not support multipart data. }
   {  Allocates and returns a new buffer containing the serialized message. }
   {  To decode a serialized message buffer, use zmsg_decode (). }
     zmsg_encode : function(self: pzmsg_t; var buffer:Pbyte): NativeUInt; cdecl;
-    
+
   {  Decodes a serialized message buffer created by zmsg_encode () and returns }
   {  a new zmsg_t object. Returns NULL if the buffer was badly formatted or  }
   {  there was insufficient memory to work. }
     zmsg_decode : function(var buffer; buffer_size: NativeUInt): pzmsg_t; cdecl;
-    
+
   {  Create copy of message, as new message object. Returns a fresh zmsg_t }
   {  object, or NULL if there was not enough heap memory. }
     zmsg_dup : function(self: pzmsg_t): pzmsg_t; cdecl;
-    
+
   {  Print message to open stream }
   {  Truncates to first 10 frames, for readability. }
     zmsg_fprint : procedure(self: pzmsg_t; afile: Pointer); cdecl;
-    
+
   {  Print message to stdout }
     zmsg_print : procedure(self: pzmsg_t); cdecl;
-    
+
   {  Self test of this class }
     zmsg_test : function(verbose: Longbool): Longint; cdecl;
-    
+
   {$ELSE ~CZMQ_LINKONREQUEST}
 
     function zmsg_new: pzmsg_t; cdecl; external CZMQ_LIB;
@@ -861,7 +801,7 @@ const
 
     //  Callback function for reactor events
     zloop_fn = function(loop: pzloop_t; poolitem: Pointer; arg: Pointer): Longint; cdecl;
-    
+
     // Callback for reactor timer events
     zloop_timer_fn = function(loop: pzloop_t; timer_id: Longint; arg: Pointer): Longint; cdecl;
 
@@ -869,45 +809,45 @@ const
   var
   {  Create a new zloop reactor }
     zloop_new : function: pzloop_t; cdecl;
-    
+
   {  Destroy a reactor }
     zloop_destroy : procedure(var self: pzloop_t); cdecl;
-    
+
   {  Register pollitem with the reactor. When the pollitem is ready, will call }
   {  the handler, passing the arg. Returns 0 if OK, -1 if there was an error. }
   {  If you register the pollitem more than once, each instance will invoke its }
   {  corresponding handler. }
     zloop_poller : function(self: pzloop_t; poolitem: Pointer; handler: zloop_fn; arg: Pointer): Longint; cdecl;
-    
+
   {  Cancel a pollitem from the reactor, specified by socket or FD. If both }
   {  are specified, uses only socket. If multiple poll items exist for same }
   {  socket/FD, cancels ALL of them. }
     zloop_poller_end : procedure(self: pzloop_t; poolitem: Pointer); cdecl;
-    
+
   {  Configure a registered pollitem to ignore errors. If you do not set this,  }
   {  then pollitems that have errors are removed from the reactor silently. }
     zloop_set_tolerant : procedure(self: pzloop_t; poolitem: Pointer); cdecl;
-    
+
   {  Register a timer that expires after some delay and repeats some number of }
   {  times. At each expiry, will call the handler, passing the arg. To }
   {  run a timer forever, use 0 times. Returns a timer_id that is used to cancel }
   {  the timer in the future. Returns -1 if there was an error. }
     zloop_timer : function(self: pzloop_t; delay: NativeUInt; times: NativeUInt; handler: zloop_timer_fn;
                            arg: Pointer): Longint; cdecl;
-    
+
   {  Cancel a specific timer identified by a specific timer_id (as returned by }
   {  zloop_timer). }
     zloop_timer_end : function(self: pzloop_t; timer_id: Longint): Longint; cdecl;
-    
+
   {  Set verbose tracing of reactor on/off }
     zloop_set_verbose : procedure(self: pzloop_t; verbose: Longbool); cdecl;
-    
+
   {  Start the reactor. Takes control of the thread and returns when the 0MQ }
   {  context is terminated or the process is interrupted, or any event handler }
   {  returns -1. Event handlers may register new sockets and timers, and }
   {  cancel sockets. Returns 0 if interrupted, -1 if cancelled by a handler. }
     zloop_start : function(self: pzloop_t): Longint; cdecl;
-    
+
   {  Self test of this class }
     zloop_test : procedure(verbose: Longbool); cdecl;
 
@@ -934,7 +874,7 @@ const
     end;
 
   const
-    CURVE_ALLOW_ANY = '*';    
+    CURVE_ALLOW_ANY = '*';
 
   {$IFDEF CZMQ_LINKONREQUEST}
 
@@ -946,25 +886,25 @@ const
   {  behaviour), and all PLAIN and CURVE connections are denied. If there was }
   {  an error during initialization, returns NULL. }
     zauth_new : function(ctx: pzctx_t): pzauth_t; cdecl;
-    
+
   {  Allow (whitelist) a single IP address. For NULL, all clients from this }
   {  address will be accepted. For PLAIN and CURVE, they will be allowed to }
   {  continue with authentication. You can call this method multiple times  }
   {  to whitelist multiple IP addresses. If you whitelist a single address, }
   {  any non-whitelisted addresses are treated as blacklisted. }
     zauth_allow : procedure(self: pzauth_t; address: PAnsiChar); cdecl;
-    
+
   {  Deny (blacklist) a single IP address. For all security mechanisms, this }
   {  rejects the connection without any further authentication. Use either a }
   {  whitelist, or a blacklist, not not both. If you define both a whitelist  }
   {  and a blacklist, only the whitelist takes effect. }
     zauth_deny : procedure(self: pzauth_t; address: PAnsiChar); cdecl;
-    
+
   {  Configure PLAIN authentication for a given domain. PLAIN authentication }
   {  uses a plain-text password file. To cover all domains, use "*". You can }
   {  modify the password file at any time; it is reloaded automatically. }
     zauth_configure_plain : procedure(self: pzauth_t; domain: PAnsiChar; filename: PAnsiChar); cdecl;
-    
+
   {  Configure CURVE authentication for a given domain. CURVE authentication }
   {  uses a directory that holds all public client certificates, i.e. their }
   {  public keys. The certificates must be in zcert_save () format. To cover }
@@ -972,13 +912,13 @@ const
   {  directory at any time. To allow all client keys without checking, specify }
   {  CURVE_ALLOW_ANY for the location. }
     zauth_configure_curve : procedure(self: pzauth_t; domain: PAnsiChar; location: PAnsiChar); cdecl;
-    
+
   {  Enable verbose tracing of commands and activity }
     zauth_set_verbose : procedure(self: pzauth_t; verbose: Longbool); cdecl;
-    
+
   {  Destructor }
     zauth_destroy : procedure(var self: pzauth_t); cdecl;
-    
+
   {  Selftest }
     zauth_test : function(verbose: Longbool): Longint; cdecl;
 
@@ -1006,13 +946,13 @@ const
   var
   {  Create new poller }
     zpoller_new : function(var reader: Pointer{, ...}): pzpoller_t; varargs; cdecl;
-    
+
   {  Destroy a poller }
     zpoller_destroy : procedure(var self: pzpoller_t); cdecl;
-    
+
   { Add a reader to be polled. }
     zpoller_add : function(self: pzpoller_t; reader: Pointer): Longint; cdecl;
-    
+
   {  Poll the registered readers for I/O, return first socket that has input. }
   {  This means the order that sockets are defined in the poll list affects }
   {  their priority. If you need a balanced poll, use the low level zmq_poll }
@@ -1021,15 +961,15 @@ const
   {  test the actual exit condition by calling zpoller_expired () and }
   {  zpoller_terminated (). Timeout is in msec. }
     zpoller_wait : function(self: pzpoller_t; timeout: Longint): Pointer; cdecl;
-    
+
   {  Return true if the last zpoller_wait () call ended because the timeout }
   {  expired, without any error. }
     zpoller_expired : function(self: pzpoller_t): Longbool; cdecl;
-    
+
   {  Return true if the last zpoller_wait () call ended because the process }
   {  was interrupted, or the parent context was destroyed. }
     zpoller_terminated : function(self: pzpoller_t): Longbool; cdecl;
-    
+
   {  Self test of this class }
     zpoller_test : function(verbose: Longbool): Longint; cdecl;
 
@@ -1044,7 +984,7 @@ const
   {$ENDIF ~CZMQ_LINKONREQUEST}
 
   {** zmonitor **}
-  
+
   type
     pzmonitor_t = ^zmonitor_t;
     zmonitor_t = record // opaque struct
@@ -1054,20 +994,20 @@ const
   var
   {  Create a new socket monitor }
     zmonitor_new : function(ctx: pzctx_t; socket: Pointer; events: Longint): pzmonitor_t; cdecl;
-    
+
   {  Destroy a socket monitor }
     zmonitor_destroy : procedure(var self: pzmonitor_t); cdecl;
-    
+
   {  Receive a status message from the monitor; if no message arrives within }
   {  500 msec, or the call was interrupted, returns NULL. }
     zmonitor_recv : function(self: pzmonitor_t): pzmsg_t; cdecl;
-    
+
   {  Get the ZeroMQ socket, for polling  }
     zmonitor_socket : function(self: pzmonitor_t): Pointer; cdecl;
-    
+
   {  Enable verbose tracing of commands and activity }
     zmonitor_set_verbose : procedure(self: pzmonitor_t; verbose: Longbool); cdecl;
-    
+
   { Self test of this class }
     zmonitor_test : procedure(verbose: Longbool); cdecl;
 
@@ -1087,39 +1027,39 @@ const
     pzbeacon_t = ^zbeacon_t;
     zbeacon_t = record
     end;
-    
+
   {$IFDEF CZMQ_LINKONREQUEST}
   var
   {  Create a new beacon on a certain UDP port }
     zbeacon_new : function(ctx: pzctx_t; port_nbr: Longint): pzbeacon_t; cdecl;
-    
+
   {  Destroy a beacon }
     zbeacon_destroy : procedure(self: pzbeacon_t); cdecl;
-    
+
   {  Return our own IP address as printable string }
     zbeacon_hostname : function(self: pzbeacon_t): PAnsiChar; cdecl;
-    
+
   {  Set broadcast interval in milliseconds (default is 1000 msec) }
     zbeacon_set_interval : procedure(self: pzbeacon_t; interval: Longint); cdecl;
-    
+
   {  Filter out any beacon that looks exactly like ours }
     zbeacon_noecho : procedure(self: pzbeacon_t); cdecl;
-    
+
   {  Start broadcasting beacon to peers at the specified interval }
     zbeacon_publish : procedure(self: pzbeacon_t; transmit: PByteArray; size: NativeUInt); cdecl;
-    
+
   {  Stop broadcasting beacons }
     zbeacon_silence : procedure(self: pzbeacon_t); cdecl;
-    
+
   {  Start listening to other peers; zero-sized filter means get everything }
     zbeacon_subscribe : procedure(self: pzbeacon_t; var filter:byte; size: NativeUInt); cdecl;
-    
+
   {  Stop listening to other peers }
     zbeacon_unsubscribe : procedure(self: pzbeacon_t); cdecl;
-    
+
   {  Get beacon ZeroMQ socket, for polling or receiving messages }
     zbeacon_socket : function(self: pzbeacon_t): Pointer; cdecl;
-    
+
   {  Self test of this class }
     zbeacon_test : procedure(verbose: Longbool); cdecl;
 
@@ -1140,7 +1080,7 @@ const
   {** zuuid **}
 
   const
-    ZUUID_LEN = 16;    
+    ZUUID_LEN = 16;
 
   type
     pzuuid_t = ^zuuid_t;
@@ -1151,34 +1091,34 @@ const
   var
   {  Constructor }
     zuuid_new : function: pzuuid_t; cdecl;
-    
+
   {  Destructor }
     zuuid_destroy : procedure(var self:pzuuid_t); cdecl;
-    
+
   {  Return UUID binary data }
     zuuid_data : function(self: pzuuid_t): PByteArray; cdecl;
-    
+
   {  Return UUID binary size }
     zuuid_size : function(self: pzuuid_t): NativeUInt; cdecl;
-    
+
   {  Returns UUID as string }
     zuuid_str : function(self: pzuuid_t): PAnsiChar; cdecl;
-    
+
   {  Set UUID to new supplied value  }
     zuuid_set : procedure(self: pzuuid_t; source: PByteArray); cdecl;
-    
+
   {  Store UUID blob in target array }
     zuuid_export : procedure(self: pzuuid_t; target: PByteArray); cdecl;
-    
+
   {  Check if UUID is same as supplied value }
     zuuid_eq : function(self: pzuuid_t; compare: PByteArray): Longbool; cdecl;
-    
+
   {  Check if UUID is different from supplied value }
     zuuid_neq : function(self: pzuuid_t; compare: PByteArray): Longbool; cdecl;
-    
+
   {  Make copy of UUID object }
     zuuid_dup : function(self: pzuuid_t): pzuuid_t; cdecl;
-    
+
   {  Self test of this class }
     zuuid_test : function(verbose: Longbool): Longint; cdecl;
 
@@ -1203,13 +1143,13 @@ const
 
 implementation
 
-{$IFDEF FPC}
 {$IFDEF CZMQ_LINKONREQUEST}
+{$IFDEF FPC}
   uses dynlibs;
-{$ENDIF CZMQ_LINKONREQUEST}
 {$ELSE ~FPC}
   uses Windows;
 {$ENDIF ~FPC}
+{$ENDIF CZMQ_LINKONREQUEST}
 
 {$IFDEF CZMQ_LINKONREQUEST}
   var
@@ -1338,7 +1278,7 @@ implementation
       zmonitor_socket:=nil;
       zmonitor_set_verbose:=nil;
       zmonitor_test:=nil;
-      
+
       zsocket_tos:=nil;
       zsocket_plain_server:=nil;
       zsocket_plain_username:=nil;
@@ -1439,7 +1379,7 @@ implementation
       zbeacon_unsubscribe:=nil;
       zbeacon_socket:=nil;
       zbeacon_test:=nil;
-      
+
       zuuid_new:=nil;
       zuuid_destroy:=nil;
       zuuid_data:=nil;
@@ -1580,7 +1520,7 @@ implementation
       Pointer(zmonitor_socket) := GetProcAddress(_hlib, 'zmonitor_socket');
       Pointer(zmonitor_set_verbose) := GetProcAddress(_hlib, 'zmonitor_set_verbose');
       Pointer(zmonitor_test) := GetProcAddress(_hlib, 'zmonitor_test');
-      
+
       Pointer(zsocket_tos) := GetProcAddress(_hlib, 'zsocket_tos');
       Pointer(zsocket_plain_server) := GetProcAddress(_hlib, 'zsocket_plain_server');
       Pointer(zsocket_plain_username) := GetProcAddress(_hlib, 'zsocket_plain_username');
